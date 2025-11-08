@@ -1,0 +1,28 @@
+{
+  "name": "Python 3.14 Development Environment",
+  "dockerComposeFile": [
+    "docker-compose.yml"
+  ],
+  "service": "web",
+  "workspaceFolder": "/workspace",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.pylance", // 自分で追加
+        "saoudrizwan.claude-dev", // Cline
+        "anthropic.claude-code" // Claude Code
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/workspace/.venv/bin/python"
+      }
+    }
+  },
+ "containerEnv": {
+    "UV_LINK_MODE": "copy", // devcontainer上だとハードリンクできないのでcopyモードにする
+    "DJANGO_SETTINGS_MODULE": "config.settings.dev", // 開発環境用の設定モジュールを指定
+    "DATABASE_URL": "postgres://postgres:postgres@db:5432/postgres" // データベースの接続URLを指定
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "remoteUser": "vscode"
+}
