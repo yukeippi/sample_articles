@@ -1,5 +1,5 @@
 {
-  "name": "Python 3.14 Development Environment",
+  "name": "Sample Articles Dev Container",
   "dockerComposeFile": [
     "docker-compose.yml"
   ],
@@ -20,8 +20,7 @@
   },
  "containerEnv": {
     "UV_LINK_MODE": "copy", // devcontainer上だとハードリンクできないのでcopyモードにする
-    "DJANGO_SETTINGS_MODULE": "config.settings.dev", // 開発環境用の設定モジュールを指定
-    "DATABASE_URL": "postgres://postgres:postgres@db:5432/postgres" // データベースの接続URLを指定
+    "DJANGO_SETTINGS_MODULE": "config.settings.dev" // 開発環境用の設定モジュールを指定
   },
   "postCreateCommand": "bash .devcontainer/setup.sh",
   "remoteUser": "vscode"
