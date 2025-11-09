@@ -7,4 +7,5 @@ app_name = 'app'
 urlpatterns = [
     path('', views.IndexView.as_view(), name='index'),
     path('article/<uuid:pk>/', views.ArticleDetailView.as_view(), name='article_detail'),
+    path('article/<uuid:pk>/edit/', views.ArticleUpdateView.as_view(), name='article_edit'),
 ]

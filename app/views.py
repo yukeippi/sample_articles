@@ -1,6 +1,8 @@
 from django.shortcuts import render
-from django.views.generic import DetailView, View
+from django.urls import reverse_lazy
+from django.views.generic import DetailView, UpdateView, View
 
+from app.forms import ArticleForm
 from app.models import Article
 
 
@@ -20,3 +22,13 @@ class ArticleDetailView(DetailView):
 
     def get_queryset(self):
         return Article.objects.select_related('user').prefetch_related('comments__user')
+
+
+class ArticleUpdateView(UpdateView):
+    model = Article
+    form_class = ArticleForm
+    template_name = 'article_edit.html'
+    context_object_name = 'article'
+
+    def get_success_url(self):
+        return reverse_lazy('app:article_detail', kwargs={'pk': self.object.pk})

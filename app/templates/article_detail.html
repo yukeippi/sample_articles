@@ -11,7 +11,7 @@
     </ol>
   </nav>
 
-  <article class="mb-5">
+  <article class="mb-3">
     <header class="mb-4">
       <h1 class="mb-3">{{ article.title }}</h1>
       <div class="text-muted">
@@ -31,6 +31,9 @@
       </div>
     </div>
   </article>
+  <div class="mb-5">
+    <a href="{% url 'app:article_edit' article.pk %}" class="btn btn-primary">編集</a>
+  </div>
 
   <section class="comments-section">
     <h2 class="mb-4">コメント ({{ article.comments.count }})</h2>
@@ -54,7 +57,7 @@
     {% endif %}
   </section>
 
-  <div class="mt-4">
+  <div class="mt-4 d-flex gap-2">
     <a href="{% url 'app:index' %}" class="btn btn-secondary">一覧に戻る</a>
   </div>
 </div>
