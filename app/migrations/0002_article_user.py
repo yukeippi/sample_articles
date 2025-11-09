@@ -6,7 +6,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('app', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
@@ -16,7 +15,13 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='article',
             name='user',
-            field=models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, related_name='articles', to=settings.AUTH_USER_MODEL, verbose_name='投稿者'),
+            field=models.ForeignKey(
+                default=1,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name='articles',
+                to=settings.AUTH_USER_MODEL,
+                verbose_name='投稿者',
+            ),
             preserve_default=False,
         ),
     ]
