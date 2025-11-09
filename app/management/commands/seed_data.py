@@ -51,14 +51,18 @@ class Command(BaseCommand):
 
         # サンプルユーザーを作成
         self.stdout.write(f'{num_users}人のユーザーを作成しています...')
-        users = baker.make(
-            User,
-            num_users,
-            username=fake.user_name,
-            email=fake.email,
-            first_name=fake.first_name,
-            last_name=fake.last_name,
-        )
+        users = []
+        for _ in range(num_users):
+            user = baker.make(
+                User,
+                username=fake.user_name(),
+                email=fake.email(),
+                first_name=fake.first_name(),
+                last_name=fake.last_name(),
+            )
+            user.set_password('password')  # パスワードを「password」に統一
+            user.save()
+            users.append(user)
 
         # サンプル記事を作成
         self.stdout.write(f'{num_articles}件の記事を作成しています...')
