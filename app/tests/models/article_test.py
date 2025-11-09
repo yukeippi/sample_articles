@@ -1,5 +1,6 @@
-import pytest
 from uuid import UUID
+
+import pytest
 
 from app.models import Article
 from app.tests.factories import ArticleFactory
@@ -18,10 +19,7 @@ class TestArticleModel:
 
     def test_article_creation_with_custom_values(self):
         """カスタム値で記事が作成されることを確認"""
-        article = ArticleFactory.create(
-            title='カスタムタイトル',
-            content='カスタム本文'
-        )
+        article = ArticleFactory.create(title='カスタムタイトル', content='カスタム本文')
         assert article.title == 'カスタムタイトル'
         assert article.content == 'カスタム本文'
 

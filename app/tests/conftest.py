@@ -15,6 +15,7 @@ fake = Faker('ja_JP')  # 日本語のfakerを使用
 @pytest.fixture
 def user_factory():
     """ユーザーを作成するファクトリ"""
+
     def _create_user(**kwargs):
         defaults = {
             'username': fake.user_name(),
@@ -24,6 +25,7 @@ def user_factory():
         }
         defaults.update(kwargs)
         return baker.make(User, **defaults)
+
     return _create_user
 
 
@@ -42,6 +44,7 @@ def users(user_factory):
 @pytest.fixture
 def article_factory(user):
     """記事を作成するファクトリ"""
+
     def _create_article(**kwargs):
         defaults = {
             'title': fake.sentence(),
@@ -50,6 +53,7 @@ def article_factory(user):
         }
         defaults.update(kwargs)
         return baker.make(Article, **defaults)
+
     return _create_article
 
 
@@ -68,6 +72,7 @@ def articles(article_factory):
 @pytest.fixture
 def comment_factory(user, article):
     """コメントを作成するファクトリ"""
+
     def _create_comment(**kwargs):
         defaults = {
             'article': article,
@@ -76,6 +81,7 @@ def comment_factory(user, article):
         }
         defaults.update(kwargs)
         return baker.make(Comment, **defaults)
+
     return _create_comment
 
 

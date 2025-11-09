@@ -1,5 +1,6 @@
-import pytest
 from uuid import UUID
+
+import pytest
 
 from app.models import Comment
 from app.tests.factories import ArticleFactory, CommentFactory, UserFactory

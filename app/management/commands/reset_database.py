@@ -1,6 +1,6 @@
-from django.core.management.base import BaseCommand, CommandError
-from django.core.management import call_command
 from django.conf import settings
+from django.core.management import call_command
+from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 
 
@@ -25,8 +25,7 @@ class Command(BaseCommand):
         # 確認
         if not options['noinput']:
             confirm = input(
-                f'データベース "{db_name}" を削除して再作成します。'
-                f'よろしいですか？ [y/N]: '
+                f'データベース "{db_name}" を削除して再作成します。よろしいですか？ [y/N]: '
             )
             if confirm.lower() != 'y':
                 self.stdout.write('キャンセルしました。')
@@ -41,12 +40,10 @@ class Command(BaseCommand):
         try:
             call_command('reset_db', '--noinput', '--close-sessions')
             self.stdout.write(self.style.SUCCESS('削除完了'))
-        except Exception as e:
+        except Exception:
             # django-extensionsが使えない場合は、flushを使用
             self.stdout.write(
-                self.style.WARNING(
-                    'reset_dbコマンドが使用できません。flushを使用します。'
-                )
+                self.style.WARNING('reset_dbコマンドが使用できません。flushを使用します。')
             )
             try:
                 call_command('flush', '--noinput')
@@ -54,7 +51,7 @@ class Command(BaseCommand):
             except Exception as flush_error:
                 raise CommandError(
                     f'データベースのリセットに失敗しました: {flush_error}'
-                )
+                ) from flush_error
 
         # マイグレーションを実行
         self.stdout.write('マイグレーションを実行しています...')
@@ -66,6 +63,4 @@ class Command(BaseCommand):
             self.stdout.write('初期データを投入しています...')
             call_command('seed_data')
 
-        self.stdout.write(
-            self.style.SUCCESS('データベースのリセットが完了しました！')
-        )
+        self.stdout.write(self.style.SUCCESS('データベースのリセットが完了しました！'))
