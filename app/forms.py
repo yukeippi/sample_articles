@@ -10,7 +10,9 @@ class ArticleForm(forms.ModelForm):
         model = Article
         fields = ['title', 'content']
         widgets = {
-            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'タイトルを入力'}),
+            'title': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': 'タイトルを入力'}
+            ),
             'content': forms.Textarea(
                 attrs={
                     'class': 'form-control',
