@@ -31,10 +31,12 @@
       </div>
     </div>
   </article>
-  <div class="mb-5 d-flex gap-2">
-    <a href="{% url 'app:article_edit' article.pk %}" class="btn btn-primary">編集</a>
-    <a href="{% url 'app:article_delete' article.pk %}" class="btn btn-danger">削除</a>
-  </div>
+  {% if user.is_authenticated and article.user == user %}
+    <div class="mb-5 d-flex gap-2">
+      <a href="{% url 'app:article_edit' article.pk %}" class="btn btn-primary">編集</a>
+      <a href="{% url 'app:article_delete' article.pk %}" class="btn btn-danger">削除</a>
+    </div>
+  {% endif %}
 
   <section class="comments-section">
     <h2 class="mb-4">コメント ({{ article.comments.count }})</h2>
