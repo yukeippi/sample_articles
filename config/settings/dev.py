@@ -26,9 +26,20 @@ LOGGING = {
     },
     "root": {
         "handlers": ["console"],
+        "level": "INFO",
     },
     "loggers": {
         "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "django.db.backends": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "django.utils.autoreload": {
             "handlers": ["console"],
             "level": "INFO",
             "propagate": False,
