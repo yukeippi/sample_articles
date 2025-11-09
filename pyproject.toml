@@ -12,3 +12,9 @@ dependencies = [
     "psycopg2-binary>=2.9.11",
     "uuid6>=2025.0.1",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.0",
+    "pytest-django>=4.11.1",
+]
