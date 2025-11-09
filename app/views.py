@@ -2,6 +2,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.models import User
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
@@ -46,14 +47,14 @@ class LogoutView(View):
         return redirect('app:index')
 
 
-class ArticleCreateView(CreateView):
+class ArticleCreateView(LoginRequiredMixin, CreateView):
     model = Article
     form_class = ArticleForm
     template_name = 'article_create.html'
 
     def form_valid(self, form):
-        # デモ用：最初のユーザーを投稿者として設定
-        form.instance.user = User.objects.first()
+        # ログインユーザーを投稿者として設定
+        form.instance.user = self.request.user
         return super().form_valid(form)
 
     def get_success_url(self):
@@ -69,18 +70,28 @@ class ArticleDetailView(DetailView):
         return Article.objects.select_related('user').prefetch_related('comments__user')
 
 
-class ArticleUpdateView(UpdateView):
+class ArticleUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = Article
     form_class = ArticleForm
     template_name = 'article_edit.html'
     context_object_name = 'article'
 
+    def test_func(self):
+        # 記事の所有者のみ編集可能
+        article = self.get_object()
+        return article.user == self.request.user
+
     def get_success_url(self):
         return reverse_lazy('app:article_detail', kwargs={'pk': self.object.pk})
 
 
-class ArticleDeleteView(DeleteView):
+class ArticleDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     model = Article
     template_name = 'article_delete.html'
     context_object_name = 'article'
     success_url = reverse_lazy('app:index')
+
+    def test_func(self):
+        # 記事の所有者のみ削除可能
+        article = self.get_object()
+        return article.user == self.request.user
