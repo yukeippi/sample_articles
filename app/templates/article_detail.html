@@ -1,0 +1,65 @@
+{% extends 'base/base.html' %}
+
+{% block title %}{{ article.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'app:index' %}">記事一覧</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ article.title }}</li>
+    </ol>
+  </nav>
+
+  <article class="mb-3">
+    <header class="mb-4">
+      <h1 class="mb-3">{{ article.title }}</h1>
+      <div class="text-muted">
+        <small>
+          投稿者: <strong>{{ article.user.username }}</strong> |
+          作成日時: {{ article.created_at|date:"Y年m月d日 H:i" }} |
+          更新日時: {{ article.updated_at|date:"Y年m月d日 H:i" }}
+        </small>
+      </div>
+    </header>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="article-content">
+          {{ article.content|linebreaks }}
+        </div>
+      </div>
+    </div>
+  </article>
+  <div class="mb-5 d-flex gap-2">
+    <a href="{% url 'app:article_edit' article.pk %}" class="btn btn-primary">編集</a>
+    <a href="{% url 'app:article_delete' article.pk %}" class="btn btn-danger">削除</a>
+  </div>
+
+  <section class="comments-section">
+    <h2 class="mb-4">コメント ({{ article.comments.count }})</h2>
+
+    {% if article.comments.all %}
+      <div class="list-group mb-4">
+        {% for comment in article.comments.all %}
+          <div class="list-group-item">
+            <div class="d-flex w-100 justify-content-between mb-2">
+              <h6 class="mb-0">{{ comment.user.username }}</h6>
+              <small class="text-muted">{{ comment.created_at|date:"Y/m/d H:i" }}</small>
+            </div>
+            <p class="mb-0">{{ comment.content|linebreaks }}</p>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="alert alert-light" role="alert">
+        コメントはまだありません。
+      </div>
+    {% endif %}
+  </section>
+
+  <div class="mt-4 d-flex gap-2">
+    <a href="{% url 'app:index' %}" class="btn btn-secondary">一覧に戻る</a>
+  </div>
+</div>
+{% endblock %}
