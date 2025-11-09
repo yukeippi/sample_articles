@@ -1,5 +1,9 @@
+from django.contrib.auth import authenticate
+from django.contrib.auth import login as auth_login
+from django.contrib.auth import logout as auth_logout
+from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import User
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DeleteView, DetailView, UpdateView, View
 
@@ -14,6 +18,32 @@ class IndexView(View):
             'articles': articles,
         }
         return render(request, 'index.html', context)
+
+
+class LoginView(View):
+    def get(self, request):
+        if request.user.is_authenticated:
+            return redirect('app:index')
+        form = AuthenticationForm()
+        return render(request, 'login.html', {'form': form})
+
+    def post(self, request):
+        form = AuthenticationForm(request, data=request.POST)
+        if form.is_valid():
+            username = form.cleaned_data.get('username')
+            password = form.cleaned_data.get('password')
+            user = authenticate(username=username, password=password)
+            if user is not None:
+                auth_login(request, user)
+                next_url = request.GET.get('next', 'app:index')
+                return redirect(next_url)
+        return render(request, 'login.html', {'form': form})
+
+
+class LogoutView(View):
+    def post(self, request):
+        auth_logout(request)
+        return redirect('app:index')
 
 
 class ArticleCreateView(CreateView):
