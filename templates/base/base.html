@@ -11,6 +11,25 @@
     {% block extra_css %}{% endblock %}
   </head>
   <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="{% url 'app:index' %}">Article App</a>
+        <div class="d-flex">
+          {% if user.is_authenticated %}
+            <span class="navbar-text me-3">
+              ようこそ、<strong>{{ user.username }}</strong>さん
+            </span>
+            <form method="post" action="{% url 'app:logout' %}" class="d-inline">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline-light btn-sm">ログアウト</button>
+            </form>
+          {% else %}
+            <a href="{% url 'app:login' %}" class="btn btn-outline-light btn-sm">ログイン</a>
+          {% endif %}
+        </div>
+      </div>
+    </nav>
+
     {% block content %}
     {% endblock %}
 
