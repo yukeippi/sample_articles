@@ -44,16 +44,28 @@ python manage.py reset_database --noinput --seed
 
 初期データを投入するコマンドです。開発環境やテスト環境でサンプルデータを用意する際に使用します。
 
-### 投入されるデータ
+**Faker**と**model-bakery**を使用してランダムなテストデータを生成します。
 
-- **ユーザー**: 太郎、花子、次郎（各3名）
-- **記事**: 3件（各ユーザーが1件ずつ投稿）
-- **コメント**: 4件（記事へのコメント）
+### デフォルトで投入されるデータ
+
+- **ユーザー**: 5人（日本語の名前とメールアドレス）
+- **記事**: 10件（ランダムなタイトルと本文）
+- **コメント**: 20件（記事へのランダムなコメント）
 
 ### 基本的な使い方
 
 ```bash
+# デフォルトの数で投入
 python manage.py seed_data
+
+# 既存データを削除してから投入
+python manage.py seed_data --clear
+
+# カスタム数で投入
+python manage.py seed_data --users 10 --articles 50 --comments 100
+
+# 既存データを削除してカスタム数で投入
+python manage.py seed_data --clear --users 3 --articles 5 --comments 10
 ```
 
 ### オプション
@@ -62,8 +74,23 @@ python manage.py seed_data
 既存のデータを削除してから初期データを投入します。
 （注意: スーパーユーザー以外のユーザーも削除されます）
 
+#### --users N
+作成するユーザー数を指定します（デフォルト: 5）
+
+#### --articles N
+作成する記事数を指定します（デフォルト: 10）
+
+#### --comments N
+作成するコメント数を指定します（デフォルト: 20）
+
+### 使用例
+
 ```bash
-python manage.py seed_data --clear
+# 大量のテストデータを作成
+python manage.py seed_data --clear --users 50 --articles 200 --comments 500
+
+# 少量のテストデータを作成
+python manage.py seed_data --clear --users 3 --articles 5 --comments 10
 ```
 
 ### ヘルプの表示
