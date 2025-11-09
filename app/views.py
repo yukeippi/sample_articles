@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from django.urls import reverse_lazy
-from django.views.generic import DetailView, UpdateView, View
+from django.views.generic import DeleteView, DetailView, UpdateView, View
 
 from app.forms import ArticleForm
 from app.models import Article
@@ -32,3 +32,10 @@ class ArticleUpdateView(UpdateView):
 
     def get_success_url(self):
         return reverse_lazy('app:article_detail', kwargs={'pk': self.object.pk})
+
+
+class ArticleDeleteView(DeleteView):
+    model = Article
+    template_name = 'article_delete.html'
+    context_object_name = 'article'
+    success_url = reverse_lazy('app:index')
