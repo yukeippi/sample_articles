@@ -1,0 +1,44 @@
+{% load form_extras %}
+
+{% if field|is_checkbox %}
+  <div class="form-check mb-3">
+    {{ field|widget_class:"form-check-input" }}
+    <label class="form-check-label" for="{{ field.id_for_label }}">
+      {{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}
+    </label>
+    {% for error in field.errors %}
+      <div class="invalid-feedback d-block">{{ error }}</div>
+    {% endfor %}
+    {% if field.help_text %}
+      <div class="form-text">{{ field.help_text|safe }}</div>
+    {% endif %}
+  </div>
+
+{% elif field|is_select %}
+  <div class="mb-3">
+    <label class="form-label" for="{{ field.id_for_label }}">
+      {{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}
+    </label>
+    {{ field|widget_class:"form-select" }}
+    {% for error in field.errors %}
+      <div class="invalid-feedback">{{ error }}</div>
+    {% endfor %}
+    {% if field.help_text %}
+      <div class="form-text">{{ field.help_text|safe }}</div>
+    {% endif %}
+  </div>
+
+{% else %}
+  <div class="mb-3">
+    <label class="form-label" for="{{ field.id_for_label }}">
+      {{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}
+    </label>
+    {{ field|widget_class:"form-control" }}
+    {% for error in field.errors %}
+      <div class="invalid-feedback">{{ error }}</div>
+    {% endfor %}
+    {% if field.help_text %}
+      <div class="form-text">{{ field.help_text|safe }}</div>
+    {% endif %}
+  </div>
+{% endif %}
