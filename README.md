@@ -158,6 +158,29 @@ python manage.py shell_plus
 python manage.py dbshell
 ```
 
+### テスト
+```bash
+# ユニットテストを実行
+uv run pytest app/tests/models/
+
+# E2Eテストを実行（Playwrightを使用）
+uv run pytest app/tests/e2e/
+
+# すべてのテストを実行
+uv run pytest
+
+# 特定のテストファイルを実行
+uv run pytest app/tests/e2e/test_auth.py
+
+# テストカバレッジを確認
+uv run pytest --cov=app
+```
+
+**E2Eテストについて:**
+- Playwrightを使用したブラウザテストを実装
+- ヘッドレスモードで実行（XServerなしで動作）
+- テスト用ユーザー: `testuser` / `password` と `otheruser` / `password`
+
 ## アーキテクチャの特徴
 
 ### モデル設計の方針

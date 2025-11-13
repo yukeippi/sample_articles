@@ -17,8 +17,10 @@ dependencies = [
 dev = [
     "faker>=37.12.0",
     "model-bakery>=1.20.5",
+    "playwright>=1.55.0",
     "pytest>=9.0.0",
     "pytest-django>=4.11.1",
+    "pytest-playwright>=0.3.0",
     "ruff>=0.14.4",
 ]
 
@@ -102,3 +104,19 @@ quote-style = "single"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.dev"
+python_files = ["tests.py", "test_*.py", "*_tests.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = ["-v", "--strict-markers", "--tb=short"]
+testpaths = ["app/tests"]
+markers = [
+    "e2e: E2E tests using Playwright",
+    "unit: Unit tests",
+]
+
+[tool.playwright]
+browser = "chromium"
+headless = true
