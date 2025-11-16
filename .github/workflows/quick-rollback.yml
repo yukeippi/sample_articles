@@ -1,0 +1,236 @@
+name: Quick Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "ROLLBACK" to confirm'
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  quick-rollback:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'ROLLBACK'
+    env:
+      AWS_REGION: ap-northeast-1
+      ECR_REPO: sample-todo
+      SERVICE_NAME: sample_todo
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 確認メッセージ
+      - name: Confirm rollback
+        run: |
+          echo "🚨 QUICK ROLLBACK INITIATED"
+          echo "This will rollback to the previous deployment"
+
+      # AWS認証
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.APPRUNNER_DEPLOY_ARN }}
+
+      # ECRログイン
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # 前回のデプロイを特定
+      - name: Find previous deployment
+        id: previous
+        run: |
+          echo "🔍 Finding previous deployment..."
+          
+          ECR_URI=$(aws ecr describe-repositories --repository-names $ECR_REPO --query 'repositories[0].repositoryUri' --output text)
+          
+          # 現在AppRunnerで稼働中のイメージを取得
+          SERVICE_ARN=$(aws apprunner list-services --region "${{ env.AWS_REGION }}" \
+            --query "ServiceSummaryList[?ServiceName=='${SERVICE_NAME}'].ServiceArn | [0]" \
+            --output text)
+          
+          if [ -z "$SERVICE_ARN" ] || [ "$SERVICE_ARN" = "None" ]; then
+            echo "❌ Service '${SERVICE_NAME}' not found"
+            exit 1
+          fi
+          
+          # 現在稼働中のイメージタグ（SHA）を取得
+          CURRENT_RUNNING_IMAGE=$(aws apprunner describe-service \
+            --service-arn "$SERVICE_ARN" \
+            --query 'Service.SourceConfiguration.ImageRepository.ImageIdentifier' \
+            --output text)
+          
+          echo "Current running image: $CURRENT_RUNNING_IMAGE"
+          
+          # 現在のイメージからSHAを抽出
+          CURRENT_RUNNING_SHA=$(echo "$CURRENT_RUNNING_IMAGE" | grep -o '[a-f0-9]\{40\}$' || echo "$CURRENT_RUNNING_IMAGE" | grep -o '[a-f0-9]\{7,\}$')
+          
+          if [ -z "$CURRENT_RUNNING_SHA" ]; then
+            echo "❌ Could not extract SHA from current running image: $CURRENT_RUNNING_IMAGE"
+            exit 1
+          fi
+          
+          echo "Current running SHA: $CURRENT_RUNNING_SHA"
+          
+          # デプロイタグを日付順で取得
+          ALL_DEPLOY_TAGS=$(git tag -l "deploy-*" --sort=-version:refname)
+          echo "All deployment tags:"
+          echo "$ALL_DEPLOY_TAGS"
+          
+          # 現在稼働中のSHAに対応するデプロイタグを見つける
+          CURRENT_DEPLOY_TAG=""
+          while IFS= read -r tag; do
+            TAG_SHA=$(echo "$tag" | grep -o '[a-f0-9]\{40\}$' || echo "$tag" | grep -o '[a-f0-9]\{7,\}$')
+            if [ "$TAG_SHA" = "$CURRENT_RUNNING_SHA" ]; then
+              CURRENT_DEPLOY_TAG="$tag"
+              break
+            fi
+          done <<< "$ALL_DEPLOY_TAGS"
+          
+          if [ -z "$CURRENT_DEPLOY_TAG" ]; then
+            echo "⚠️ Current running version not found in deploy tags"
+            echo "This might be the first deployment or a manual deployment"
+            echo "Using the latest deploy tag as fallback"
+            CURRENT_DEPLOY_TAG=$(echo "$ALL_DEPLOY_TAGS" | head -1)
+          fi
+          
+          echo "Current deployment tag: $CURRENT_DEPLOY_TAG"
+          
+          # 現在稼働中バージョンより前のデプロイタグを探す
+          FOUND_CURRENT=false
+          PREVIOUS_DEPLOY_TAG=""
+          
+          while IFS= read -r tag; do
+            if [ "$FOUND_CURRENT" = true ]; then
+              PREVIOUS_DEPLOY_TAG="$tag"
+              break
+            fi
+            if [ "$tag" = "$CURRENT_DEPLOY_TAG" ]; then
+              FOUND_CURRENT=true
+            fi
+          done <<< "$ALL_DEPLOY_TAGS"
+          
+          if [ -z "$PREVIOUS_DEPLOY_TAG" ]; then
+            echo "❌ No previous deployment found before current running version"
+            echo "Available deployment tags:"
+            echo "$ALL_DEPLOY_TAGS"
+            exit 1
+          fi
+          
+          echo "Previous deployment tag: $PREVIOUS_DEPLOY_TAG"
+          
+          # 前のデプロイタグからコミットSHAを抽出
+          PREVIOUS_SHA=$(echo "$PREVIOUS_DEPLOY_TAG" | grep -o '[a-f0-9]\{40\}$' || echo "$PREVIOUS_DEPLOY_TAG" | grep -o '[a-f0-9]\{7,\}$')
+          
+          if [ -z "$PREVIOUS_SHA" ]; then
+            echo "❌ Could not extract SHA from tag: $PREVIOUS_DEPLOY_TAG"
+            exit 1
+          fi
+          
+          echo "Previous deployment SHA: $PREVIOUS_SHA"
+          
+          # 前のデプロイのイメージがECRに存在するか確認
+          if aws ecr describe-images --repository-name $ECR_REPO --image-ids imageTag=$PREVIOUS_SHA > /dev/null 2>&1; then
+            echo "✅ Previous deployment image found: $ECR_URI:$PREVIOUS_SHA"
+            echo "previous_sha=$PREVIOUS_SHA" >> $GITHUB_OUTPUT
+            echo "previous_deploy_tag=$PREVIOUS_DEPLOY_TAG" >> $GITHUB_OUTPUT
+            echo "current_running_sha=$CURRENT_RUNNING_SHA" >> $GITHUB_OUTPUT
+            echo "current_deploy_tag=$CURRENT_DEPLOY_TAG" >> $GITHUB_OUTPUT
+            echo "ecr_uri=$ECR_URI" >> $GITHUB_OUTPUT
+            echo "image_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Previous deployment image not found in ECR: $ECR_URI:$PREVIOUS_SHA"
+            echo "Checking available images..."
+            aws ecr describe-images --repository-name $ECR_REPO --query 'imageDetails[*].imageTags[0]' --output table || true
+            exit 1
+          fi
+
+      # AppRunnerサービスARNを取得
+      - name: Resolve App Runner Service ARN
+        id: service
+        run: |
+          ARN=$(aws apprunner list-services --region "${{ env.AWS_REGION }}" \
+            --query "ServiceSummaryList[?ServiceName=='${SERVICE_NAME}'].ServiceArn | [0]" \
+            --output text)
+          
+          if [ -z "$ARN" ] || [ "$ARN" = "None" ]; then
+            echo "Service '${SERVICE_NAME}' not found" >&2
+            exit 1
+          fi
+          
+          echo "service_arn=$ARN" >> $GITHUB_OUTPUT
+
+      # ロールバック実行
+      - name: Execute quick rollback
+        run: |
+          ECR_URI="${{ steps.previous.outputs.ecr_uri }}"
+          PREVIOUS_SHA="${{ steps.previous.outputs.previous_sha }}"
+          PREVIOUS_DEPLOY_TAG="${{ steps.previous.outputs.previous_deploy_tag }}"
+          CURRENT_RUNNING_SHA="${{ steps.previous.outputs.current_running_sha }}"
+          CURRENT_DEPLOY_TAG="${{ steps.previous.outputs.current_deploy_tag }}"
+          SERVICE_ARN="${{ steps.service.outputs.service_arn }}"
+          
+          echo "🔄 Rolling back from currently running version to previous deployment:"
+          echo "   Current running: $CURRENT_DEPLOY_TAG ($CURRENT_RUNNING_SHA)"
+          echo "   Rolling back to: $PREVIOUS_DEPLOY_TAG ($PREVIOUS_SHA)"
+          echo "   Image: $ECR_URI:$PREVIOUS_SHA"
+          
+          aws apprunner update-service \
+            --service-arn "$SERVICE_ARN" \
+            --source-configuration "ImageRepository={ImageIdentifier=$ECR_URI:$PREVIOUS_SHA,ImageRepositoryType=ECR,ImageConfiguration={Port=8000}},AutoDeploymentsEnabled=true"
+
+      # 完了待機
+      - name: Wait for rollback completion
+        run: |
+          SERVICE_ARN="${{ steps.service.outputs.service_arn }}"
+          
+          echo "⏳ Waiting for rollback to complete..."
+          timeout=1200  # 20分でタイムアウト
+          elapsed=0
+          
+          while [ $elapsed -lt $timeout ]; do
+            STATUS=$(aws apprunner describe-service --service-arn "$SERVICE_ARN" --query 'Service.Status' --output text)
+            echo "[$elapsed s] Current status: $STATUS"
+            
+            case "$STATUS" in
+              "RUNNING")
+                echo "✅ Quick rollback completed successfully!"
+                exit 0
+                ;;
+              "OPERATION_IN_PROGRESS")
+                echo "⏳ Rollback in progress..."
+                ;;
+              "FAILED"|"PAUSED")
+                echo "❌ Rollback failed with status: $STATUS"
+                exit 1
+                ;;
+            esac
+            
+            sleep 30
+            elapsed=$((elapsed + 30))
+          done
+          
+          echo "❌ Rollback timed out after $timeout seconds"
+          exit 1
+
+      # 結果通知
+      - name: Rollback summary
+        if: always()
+        run: |
+          echo "🎯 Quick Rollback Summary:"
+          echo "   Previous running: ${{ steps.previous.outputs.current_deploy_tag }} (${{ steps.previous.outputs.current_running_sha }})"
+          echo "   Rolled back to: ${{ steps.previous.outputs.previous_deploy_tag }} (${{ steps.previous.outputs.previous_sha }})"
+          echo "   Image: ${{ steps.previous.outputs.ecr_uri }}:${{ steps.previous.outputs.previous_sha }}"
+          
+          # 現在のサービス状態
+          aws apprunner describe-service \
+            --service-arn "${{ steps.service.outputs.service_arn }}" \
+            --query 'Service.{Status:Status,ServiceUrl:ServiceUrl}' \
+            --output table

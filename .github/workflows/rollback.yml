@@ -1,0 +1,184 @@
+name: Rollback to Previous Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      rollback_method:
+        description: 'Rollback method'
+        required: true
+        default: 'previous_commit'
+        type: choice
+        options:
+        - previous_commit
+        - specific_commit
+        - specific_tag
+      target_commit:
+        description: 'Target commit SHA (for specific_commit method)'
+        required: false
+        type: string
+      target_tag:
+        description: 'Target tag (for specific_tag method)'
+        required: false
+        type: string
+      steps_back:
+        description: 'Number of commits to go back (for previous_commit method)'
+        required: false
+        default: '1'
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ap-northeast-1
+      ECR_REPO: sample-todo
+      SERVICE_NAME: sample_todo
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 全履歴を取得
+
+      # AWS認証
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.APPRUNNER_DEPLOY_ARN }}
+
+      # ECRログイン
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ロールバック対象のコミットを決定
+      - name: Determine rollback target
+        id: target
+        run: |
+          case "${{ github.event.inputs.rollback_method }}" in
+            "previous_commit")
+              STEPS_BACK="${{ github.event.inputs.steps_back }}"
+              TARGET_SHA=$(git log --format="%H" -n $((STEPS_BACK + 1)) | tail -1)
+              echo "Rolling back $STEPS_BACK commit(s) to: $TARGET_SHA"
+              ;;
+            "specific_commit")
+              TARGET_SHA="${{ github.event.inputs.target_commit }}"
+              echo "Rolling back to specific commit: $TARGET_SHA"
+              ;;
+            "specific_tag")
+              TARGET_SHA=$(git rev-list -n 1 "${{ github.event.inputs.target_tag }}")
+              echo "Rolling back to tag ${{ github.event.inputs.target_tag }} (commit: $TARGET_SHA)"
+              ;;
+          esac
+          
+          # 対象コミットが存在するか確認
+          if ! git cat-file -e "$TARGET_SHA"; then
+            echo "Error: Target commit $TARGET_SHA does not exist"
+            exit 1
+          fi
+          
+          echo "target_sha=$TARGET_SHA" >> $GITHUB_OUTPUT
+          
+          # ECRにそのイメージが存在するか確認
+          ECR_URI=$(aws ecr describe-repositories --repository-names $ECR_REPO --query 'repositories[0].repositoryUri' --output text)
+          echo "ecr_uri=$ECR_URI" >> $GITHUB_OUTPUT
+          
+          # イメージの存在確認
+          if aws ecr describe-images --repository-name $ECR_REPO --image-ids imageTag=$TARGET_SHA > /dev/null 2>&1; then
+            echo "Image $ECR_URI:$TARGET_SHA found in ECR"
+            echo "image_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Image $ECR_URI:$TARGET_SHA not found in ECR"
+            echo "image_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ECRにイメージが存在しない場合はビルド
+      - name: Build missing image
+        if: steps.target.outputs.image_exists == 'false'
+        run: |
+          echo "Building image for commit ${{ steps.target.outputs.target_sha }}"
+          git checkout ${{ steps.target.outputs.target_sha }}
+          
+          ECR_URI="${{ steps.target.outputs.ecr_uri }}"
+          docker build -f .devcontainer/Dockerfile.prod -t $ECR_URI:${{ steps.target.outputs.target_sha }} .
+          docker push $ECR_URI:${{ steps.target.outputs.target_sha }}
+
+      # AppRunnerサービスARNを取得
+      - name: Resolve App Runner Service ARN
+        id: service
+        run: |
+          ARN=$(aws apprunner list-services --region "${{ env.AWS_REGION }}" \
+            --query "ServiceSummaryList[?ServiceName=='${SERVICE_NAME}'].ServiceArn | [0]" \
+            --output text)
+          
+          if [ -z "$ARN" ] || [ "$ARN" = "None" ]; then
+            echo "Service '${SERVICE_NAME}' not found in ${{ env.AWS_REGION }}" >&2
+            exit 1
+          fi
+          
+          echo "service_arn=$ARN" >> $GITHUB_OUTPUT
+          echo "Resolved SERVICE_ARN=$ARN"
+
+      # ロールバック実行
+      - name: Execute rollback
+        run: |
+          ECR_URI="${{ steps.target.outputs.ecr_uri }}"
+          TARGET_SHA="${{ steps.target.outputs.target_sha }}"
+          SERVICE_ARN="${{ steps.service.outputs.service_arn }}"
+          
+          echo "Rolling back to image: $ECR_URI:$TARGET_SHA"
+          
+          aws apprunner update-service \
+            --service-arn "$SERVICE_ARN" \
+            --source-configuration "ImageRepository={ImageIdentifier=$ECR_URI:$TARGET_SHA,ImageRepositoryType=ECR,ImageConfiguration={Port=8000}},AutoDeploymentsEnabled=true"
+
+      # デプロイ状況の監視
+      - name: Wait for deployment completion
+        run: |
+          SERVICE_ARN="${{ steps.service.outputs.service_arn }}"
+          echo "Waiting for rollback to complete..."
+          
+          while true; do
+            STATUS=$(aws apprunner describe-service --service-arn "$SERVICE_ARN" --query 'Service.Status' --output text)
+            echo "Current status: $STATUS"
+            
+            case "$STATUS" in
+              "RUNNING")
+                echo "✅ Rollback completed successfully!"
+                break
+                ;;
+              "OPERATION_IN_PROGRESS")
+                echo "⏳ Rollback in progress..."
+                sleep 30
+                ;;
+              "FAILED"|"PAUSED")
+                echo "❌ Rollback failed with status: $STATUS"
+                exit 1
+                ;;
+              *)
+                echo "⚠️ Unknown status: $STATUS"
+                sleep 30
+                ;;
+            esac
+          done
+
+      # ロールバック結果の通知
+      - name: Report rollback result
+        run: |
+          TARGET_SHA="${{ steps.target.outputs.target_sha }}"
+          ECR_URI="${{ steps.target.outputs.ecr_uri }}"
+          
+          echo "🎉 Rollback Summary:"
+          echo "   Method: ${{ github.event.inputs.rollback_method }}"
+          echo "   Target Commit: $TARGET_SHA"
+          echo "   Image: $ECR_URI:$TARGET_SHA"
+          echo "   Status: SUCCESS"
+          
+          # 現在の状態を確認
+          aws apprunner describe-service \
+            --service-arn "${{ steps.service.outputs.service_arn }}" \
+            --query 'Service.{Status:Status,ServiceUrl:ServiceUrl}' \
+            --output table

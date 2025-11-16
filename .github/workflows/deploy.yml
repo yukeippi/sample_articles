@@ -1,0 +1,179 @@
+name: CI & Deploy to App Runner
+
+on:
+  push:
+    branches: [ "develop" ]     # ←運用ポリシーに合わせて
+  pull_request:
+    branches: [ "develop" ]
+
+permissions:
+  id-token: write    # OIDC で必須（deploy ジョブのみ使用）
+  contents: write    # タグ作成（deploy ジョブ）
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.14"
+  AWS_REGION: ap-northeast-1
+  ECR_REPO: sample-todo
+  SERVICE_NAME: sample_todo  # ←名前から ARN を解決する
+  APP_PORT: "8000"           # ←AppRunner のコンテナ公開ポート
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install ruff
+        run: |
+          pip install -U pip
+          pip install --upgrade ruff
+
+      - name: Ruff check
+        run: |
+          ruff check --output-format=github .
+
+  test:
+    name: Test (pytest)
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install -U pip
+          pip install -e .
+          pip install -r requirements-dev.txt
+
+      - name: Install Playwright browsers
+        run: |
+          playwright install --with-deps chromium
+
+      - name: Run pytest
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.dev
+        run: |
+          pytest -q --maxfail=1 --disable-warnings --cov=. --cov-report=xml
+
+      - name: Upload coverage.xml
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+
+  build:
+    name: Build & Push Image
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.event_name == 'push'  # pushイベント時のみ実行
+    outputs:
+      image_uri: ${{ steps.build_push.outputs.image_uri }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.APPRUNNER_DEPLOY_ARN }}
+
+      - name: WhoAmI
+        run: aws sts get-caller-identity
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & Push
+        id: build_push
+        run: |
+          set -euo pipefail
+          IMAGE_REPO_URI=$(aws ecr describe-repositories --repository-names "${{ env.ECR_REPO }}" \
+            --query 'repositories[0].repositoryUri' --output text)
+          GIT_SHA="${{ github.sha }}"
+
+          docker build -f .devcontainer/Dockerfile.prod -t "$IMAGE_REPO_URI:$GIT_SHA" .
+          docker push "$IMAGE_REPO_URI:$GIT_SHA"
+
+          docker tag  "$IMAGE_REPO_URI:$GIT_SHA" "$IMAGE_REPO_URI:latest"
+          docker push "$IMAGE_REPO_URI:latest"
+
+          echo "image_uri=$IMAGE_REPO_URI:$GIT_SHA" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy to App Runner
+    runs-on: ubuntu-latest
+    needs: [build]   # ← lint/test/build が通らない限り進ませないなら needs: [lint, test, build]
+    if: github.event_name == 'push'  # pushイベント時のみ実行
+    env:
+      IMAGE_URI: ${{ needs.build.outputs.image_uri }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.APPRUNNER_DEPLOY_ARN }}
+
+      - name: Resolve App Runner Service ARN by name
+        id: resolve
+        run: |
+          ARN=$(aws apprunner list-services --region "${{ env.AWS_REGION }}" \
+            --query "ServiceSummaryList[?ServiceName=='${{ env.SERVICE_NAME }}'].ServiceArn | [0]" \
+            --output text)
+          if [ -z "$ARN" ] || [ "$ARN" = "None" ]; then
+            echo "Service '${{ env.SERVICE_NAME }}' not found in ${{ env.AWS_REGION }}" >&2
+            exit 1
+          fi
+          echo "SERVICE_ARN=$ARN" >> $GITHUB_ENV
+          echo "Resolved SERVICE_ARN=$ARN"
+
+      - name: Update App Runner
+        run: |
+          aws apprunner update-service \
+            --service-arn "${{ env.SERVICE_ARN }}" \
+            --source-configuration "ImageRepository={ImageIdentifier=${{ env.IMAGE_URI }},ImageRepositoryType=ECR,ImageConfiguration={Port=${{ env.APP_PORT }}}},AutoDeploymentsEnabled=true"
+
+      - name: Wait for deployment completion
+        run: |
+          echo "⏳ Waiting for deployment to complete..."
+          timeout=1200
+          elapsed=0
+          while [ $elapsed -lt $timeout ]; do
+            STATUS=$(aws apprunner describe-service --service-arn "${{ env.SERVICE_ARN }}" --query 'Service.Status' --output text)
+            echo "[$elapsed s] Current status: $STATUS"
+            case "$STATUS" in
+              "RUNNING") echo "✅ Deployment completed successfully!"; break ;;
+              "OPERATION_IN_PROGRESS") echo "⏳ Deployment in progress..." ;;
+              "FAILED"|"PAUSED") echo "❌ Deployment failed with status: $STATUS"; exit 1 ;;
+            esac
+            sleep 30
+            elapsed=$((elapsed + 30))
+          done
+          if [ $elapsed -ge $timeout ]; then
+            echo "❌ Deployment timed out after $timeout seconds"; exit 1; fi
+
+      - name: Create deployment history tag
+        run: |
+          DEPLOY_TAG="deploy-$(date -u +%Y%m%d-%H%M%S)-${{ github.sha }}"
+          echo "📝 Creating deployment history tag: $DEPLOY_TAG"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$DEPLOY_TAG" -m "Deployment: $(date -u '+%Y-%m-%d %H:%M:%S UTC') - SHA: ${{ github.sha }}"
+          git push origin "$DEPLOY_TAG"
