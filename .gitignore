@@ -40,7 +40,7 @@ staticfiles/
 .idea/
 
 # AWS settings
-.aws/
+# .aws/
 
 # VS Code
 .vscode/*
