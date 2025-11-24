@@ -4,71 +4,19 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
 from django.views import View
-from django.views.generic import CreateView, DeleteView, UpdateView
+from django.views.generic import DeleteView
 
-from app.forms import OrganizationForm, OrganizationReservationForm
+from app.forms import OrganizationReservationForm
 from app.models import Organization, Reservation, UpdateStatus
 from app.utils.organization_reservation import OrganizationReservationHelper
 from app.utils.tree import build_tree, get_tree_html
-
-
-class OrganizationListView(View):
-    """組織一覧ビュー"""
-
-    def get(self, request):
-        organizations = Organization.objects.select_related('parent').all()
-
-        # ツリー構造用のデータを準備
-        org_list = [
-            {
-                'id': str(org.id),
-                'name': org.name,
-                'parent': str(org.parent.id) if org.parent else None,
-            }
-            for org in organizations
-        ]
-
-        tree = build_tree(org_list)
-        tree_html = get_tree_html(tree)
-
-        context = {
-            'organizations': organizations,
-            'tree_html': tree_html,
-        }
-        return render(request, 'organizations/organization_list.html', context)
-
-
-class OrganizationCreateView(LoginRequiredMixin, CreateView):
-    """組織作成ビュー"""
-
-    model = Organization
-    form_class = OrganizationForm
-    template_name = 'organizations/organization_form.html'
-    success_url = reverse_lazy('app:organization_list')
-
-
-class OrganizationUpdateView(LoginRequiredMixin, UpdateView):
-    """組織編集ビュー"""
-
-    model = Organization
-    form_class = OrganizationForm
-    template_name = 'organizations/organization_form.html'
-    success_url = reverse_lazy('app:organization_list')
-
-
-class OrganizationDeleteView(LoginRequiredMixin, DeleteView):
-    """組織削除ビュー"""
-
-    model = Organization
-    template_name = 'organizations/organization_confirm_delete.html'
-    success_url = reverse_lazy('app:organization_list')
 
 
 class OrganizationReservationListView(LoginRequiredMixin, View):
     """予約更新一覧ビュー"""
 
     def get(self, request):
-        # 全ステータスの予約を取得（pending以外も表示）
+        # 全ステータスの予約を取得(pending以外も表示)
         content_type = OrganizationReservationHelper.get_content_type()
         reservations = Reservation.objects.filter(
             content_type=content_type
@@ -88,7 +36,7 @@ class OrganizationReservationListView(LoginRequiredMixin, View):
         context = {
             'reservations': reservations_with_info,
         }
-        return render(request, 'organizations/reservation_list.html', context)
+        return render(request, 'reservations/list.html', context)
 
 
 class OrganizationReservationCreateView(LoginRequiredMixin, View):
@@ -96,7 +44,7 @@ class OrganizationReservationCreateView(LoginRequiredMixin, View):
 
     def get(self, request):
         form = OrganizationReservationForm()
-        return render(request, 'organizations/reservation_form.html', {'form': form})
+        return render(request, 'reservations/form.html', {'form': form})
 
     def post(self, request):
         form = OrganizationReservationForm(request.POST)
@@ -111,7 +59,7 @@ class OrganizationReservationCreateView(LoginRequiredMixin, View):
                 parent_reservation=form.cleaned_data.get('parent_reservation'),
             )
             return redirect('app:organization_reservation_list')
-        return render(request, 'organizations/reservation_form.html', {'form': form})
+        return render(request, 'reservations/form.html', {'form': form})
 
 
 class OrganizationReservationUpdateView(LoginRequiredMixin, View):
@@ -130,7 +78,7 @@ class OrganizationReservationUpdateView(LoginRequiredMixin, View):
             'parent_reservation': formatted.get('depends_on'),
             'scheduled_date': formatted['scheduled_date'],
         })
-        return render(request, 'organizations/reservation_form.html', {
+        return render(request, 'reservations/form.html', {
             'form': form,
             'object': reservation,
         })
@@ -156,7 +104,7 @@ class OrganizationReservationUpdateView(LoginRequiredMixin, View):
             reservation.save()
 
             return redirect('app:organization_reservation_list')
-        return render(request, 'organizations/reservation_form.html', {
+        return render(request, 'reservations/form.html', {
             'form': form,
             'object': reservation,
         })
@@ -166,7 +114,7 @@ class OrganizationReservationDeleteView(LoginRequiredMixin, DeleteView):
     """予約更新削除（キャンセル）ビュー"""
 
     model = Reservation
-    template_name = 'organizations/reservation_confirm_delete.html'
+    template_name = 'reservations/confirm_delete.html'
     success_url = reverse_lazy('app:organization_reservation_list')
 
     def get_queryset(self):
@@ -254,4 +202,4 @@ class OrganizationPreviewView(LoginRequiredMixin, View):
             'tree_html': tree_html,
             'organizations_count': len(org_list),
         }
-        return render(request, 'organizations/organization_preview.html', context)
+        return render(request, 'organizations/preview.html', context)

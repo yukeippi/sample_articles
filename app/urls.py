@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_employee, views_organization
+from app import views
 
 app_name = 'app'
 
@@ -13,63 +13,63 @@ urlpatterns = [
     path('article/<uuid:pk>/edit/', views.ArticleUpdateView.as_view(), name='article_edit'),
     path('article/<uuid:pk>/delete/', views.ArticleDeleteView.as_view(), name='article_delete'),
     # 社員関連
-    path('employees/', views_employee.EmployeeListView.as_view(), name='employee_list'),
-    path('employees/new/', views_employee.EmployeeCreateView.as_view(), name='employee_create'),
+    path('employees/', views.EmployeeListView.as_view(), name='employee_list'),
+    path('employees/new/', views.EmployeeCreateView.as_view(), name='employee_create'),
     path(
         'employees/<uuid:pk>/edit/',
-        views_employee.EmployeeUpdateView.as_view(),
+        views.EmployeeUpdateView.as_view(),
         name='employee_update',
     ),
     path(
         'employees/<uuid:pk>/delete/',
-        views_employee.EmployeeDeleteView.as_view(),
+        views.EmployeeDeleteView.as_view(),
         name='employee_delete',
     ),
     # 組織関連
     path(
         'organizations/',
-        views_organization.OrganizationListView.as_view(),
+        views.OrganizationListView.as_view(),
         name='organization_list',
     ),
     path(
         'organizations/new/',
-        views_organization.OrganizationCreateView.as_view(),
+        views.OrganizationCreateView.as_view(),
         name='organization_create',
     ),
     path(
         'organizations/<uuid:pk>/edit/',
-        views_organization.OrganizationUpdateView.as_view(),
+        views.OrganizationUpdateView.as_view(),
         name='organization_update',
     ),
     path(
         'organizations/<uuid:pk>/delete/',
-        views_organization.OrganizationDeleteView.as_view(),
+        views.OrganizationDeleteView.as_view(),
         name='organization_delete',
     ),
     path(
         'organizations/preview/',
-        views_organization.OrganizationPreviewView.as_view(),
+        views.OrganizationPreviewView.as_view(),
         name='organization_preview',
     ),
     # 予約更新関連
     path(
         'organizations/reservations/',
-        views_organization.OrganizationReservationListView.as_view(),
+        views.OrganizationReservationListView.as_view(),
         name='organization_reservation_list',
     ),
     path(
         'organizations/reservations/new/',
-        views_organization.OrganizationReservationCreateView.as_view(),
+        views.OrganizationReservationCreateView.as_view(),
         name='organization_reservation_create',
     ),
     path(
         'organizations/reservations/<uuid:pk>/edit/',
-        views_organization.OrganizationReservationUpdateView.as_view(),
+        views.OrganizationReservationUpdateView.as_view(),
         name='organization_reservation_update',
     ),
     path(
         'organizations/reservations/<uuid:pk>/delete/',
-        views_organization.OrganizationReservationDeleteView.as_view(),
+        views.OrganizationReservationDeleteView.as_view(),
         name='organization_reservation_delete',
     ),
 ]

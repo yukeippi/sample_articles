@@ -17,7 +17,7 @@ class EmployeeListView(View):
         context = {
             'employees': employees,
         }
-        return render(request, 'employees/employee_list.html', context)
+        return render(request, 'employees/list.html', context)
 
 
 class EmployeeCreateView(LoginRequiredMixin, CreateView):
@@ -25,7 +25,7 @@ class EmployeeCreateView(LoginRequiredMixin, CreateView):
 
     model = Employee
     form_class = EmployeeForm
-    template_name = 'employees/employee_form.html'
+    template_name = 'employees/form.html'
     success_url = reverse_lazy('app:employee_list')
 
 
@@ -34,7 +34,7 @@ class EmployeeUpdateView(LoginRequiredMixin, UpdateView):
 
     model = Employee
     form_class = EmployeeForm
-    template_name = 'employees/employee_form.html'
+    template_name = 'employees/form.html'
     success_url = reverse_lazy('app:employee_list')
 
 
@@ -42,5 +42,5 @@ class EmployeeDeleteView(LoginRequiredMixin, DeleteView):
     """社員削除ビュー"""
 
     model = Employee
-    template_name = 'employees/employee_confirm_delete.html'
+    template_name = 'employees/confirm_delete.html'
     success_url = reverse_lazy('app:employee_list')
