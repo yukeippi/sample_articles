@@ -13,12 +13,18 @@ dependencies = [
     "uuid6>=2025.0.1",
 ]
 
+[tool.setuptools]
+packages = ["app", "config"]
+
 [dependency-groups]
 dev = [
     "faker>=37.12.0",
     "model-bakery>=1.20.5",
+    "playwright>=1.49.0",
     "pytest>=9.0.0",
+    "pytest-cov>=6.0.0",
     "pytest-django>=4.11.1",
+    "pytest-playwright>=0.6.2",
     "ruff>=0.14.4",
 ]
 

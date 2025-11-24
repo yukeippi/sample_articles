@@ -1,0 +1,161 @@
+name: Deploy Specific Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_type:
+        description: 'Deployment type'
+        required: true
+        default: 'tag'
+        type: choice
+        options:
+        - tag
+        - commit
+        - branch
+      target_ref:
+        description: 'Target tag, commit SHA, or branch name'
+        required: true
+        type: string
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+        - production
+        - staging
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-version:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ap-northeast-1
+      ECR_REPO: sample-todo
+      SERVICE_NAME: sample_todo
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 対象のrefをチェックアウト
+      - name: Checkout target reference
+        run: |
+          case "${{ github.event.inputs.deployment_type }}" in
+            "tag")
+              git checkout "refs/tags/${{ github.event.inputs.target_ref }}"
+              TARGET_SHA=$(git rev-parse HEAD)
+              echo "Deploying tag: ${{ github.event.inputs.target_ref }} (commit: $TARGET_SHA)"
+              ;;
+            "commit")
+              git checkout "${{ github.event.inputs.target_ref }}"
+              TARGET_SHA="${{ github.event.inputs.target_ref }}"
+              echo "Deploying commit: $TARGET_SHA"
+              ;;
+            "branch")
+              git checkout "${{ github.event.inputs.target_ref }}"
+              TARGET_SHA=$(git rev-parse HEAD)
+              echo "Deploying branch: ${{ github.event.inputs.target_ref }} (commit: $TARGET_SHA)"
+              ;;
+          esac
+          
+          echo "target_sha=$TARGET_SHA" >> $GITHUB_ENV
+          echo "deployment_label=${{ github.event.inputs.deployment_type }}-${{ github.event.inputs.target_ref }}" >> $GITHUB_ENV
+
+      # AWS認証
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.APPRUNNER_DEPLOY_ARN }}
+
+      # ECRログイン
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # イメージビルド・プッシュ
+      - name: Build and push image
+        run: |
+          ECR_URI=$(aws ecr describe-repositories --repository-names $ECR_REPO --query 'repositories[0].repositoryUri' --output text)
+          
+          # ビルド
+          docker build -f .devcontainer/Dockerfile.prod -t $ECR_URI:${{ env.target_sha }} .
+          docker push $ECR_URI:${{ env.target_sha }}
+          
+          # デプロイメントラベルでもタグ付け
+          docker tag $ECR_URI:${{ env.target_sha }} $ECR_URI:${{ env.deployment_label }}
+          docker push $ECR_URI:${{ env.deployment_label }}
+          
+          echo "IMAGE_URI=$ECR_URI:${{ env.target_sha }}" >> $GITHUB_ENV
+
+      # AppRunnerサービスARNを解決
+      - name: Resolve App Runner Service ARN
+        run: |
+          ARN=$(aws apprunner list-services --region "${{ env.AWS_REGION }}" \
+            --query "ServiceSummaryList[?ServiceName=='${SERVICE_NAME}'].ServiceArn | [0]" \
+            --output text)
+          
+          if [ -z "$ARN" ] || [ "$ARN" = "None" ]; then
+            echo "Service '${SERVICE_NAME}' not found in ${{ env.AWS_REGION }}" >&2
+            exit 1
+          fi
+          
+          echo "SERVICE_ARN=$ARN" >> $GITHUB_ENV
+
+      # デプロイ実行
+      - name: Deploy to App Runner
+        run: |
+          echo "Deploying ${{ env.IMAGE_URI }} to App Runner..."
+          
+          aws apprunner update-service \
+            --service-arn "${{ env.SERVICE_ARN }}" \
+            --source-configuration "ImageRepository={ImageIdentifier=${{ env.IMAGE_URI }},ImageRepositoryType=ECR,ImageConfiguration={Port=8000}},AutoDeploymentsEnabled=true"
+
+      # デプロイ完了待機
+      - name: Wait for deployment
+        run: |
+          echo "Waiting for deployment to complete..."
+          
+          while true; do
+            STATUS=$(aws apprunner describe-service --service-arn "${{ env.SERVICE_ARN }}" --query 'Service.Status' --output text)
+            echo "Current status: $STATUS"
+            
+            case "$STATUS" in
+              "RUNNING")
+                echo "✅ Deployment completed successfully!"
+                break
+                ;;
+              "OPERATION_IN_PROGRESS")
+                echo "⏳ Deployment in progress..."
+                sleep 30
+                ;;
+              "FAILED"|"PAUSED")
+                echo "❌ Deployment failed with status: $STATUS"
+                exit 1
+                ;;
+              *)
+                echo "⚠️ Unknown status: $STATUS"
+                sleep 30
+                ;;
+            esac
+          done
+
+      # デプロイ結果レポート
+      - name: Deployment summary
+        run: |
+          echo "🚀 Deployment Summary:"
+          echo "   Type: ${{ github.event.inputs.deployment_type }}"
+          echo "   Target: ${{ github.event.inputs.target_ref }}"
+          echo "   Commit: ${{ env.target_sha }}"
+          echo "   Environment: ${{ github.event.inputs.environment }}"
+          echo "   Image: ${{ env.IMAGE_URI }}"
+          
+          # サービス情報を表示
+          aws apprunner describe-service \
+            --service-arn "${{ env.SERVICE_ARN }}" \
+            --query 'Service.{Status:Status,ServiceUrl:ServiceUrl,CreatedAt:CreatedAt,UpdatedAt:UpdatedAt}' \
+            --output table
