@@ -23,7 +23,7 @@
               <th>操作種別</th>
               <th>対象組織</th>
               <th>組織名</th>
-              <th>親組織</th>
+              <th>親組織 / 統合先</th>
               <th>適用予定日</th>
               <th>ステータス</th>
               <th>作成日時</th>
@@ -40,6 +40,7 @@
                     {% if reservation.action == 'create' %}bg-success
                     {% elif reservation.action == 'update' %}bg-primary
                     {% elif reservation.action == 'delete' %}bg-danger
+                    {% elif reservation.action == 'merge' %}bg-warning text-dark
                     {% endif %}">
                     {{ reservation.display_action }}
                   </span>
@@ -53,12 +54,22 @@
                 </td>
                 <td>{{ reservation.display_name|default:"—" }}</td>
                 <td>
-                  {% if reservation.display_parent %}
-                    {{ reservation.display_parent.name }}
-                  {% elif reservation.depends_on %}
-                    <span class="badge bg-info">未来: {{ reservation.depends_on.data.name }}</span>
+                  {% if reservation.action == 'merge' %}
+                    <!-- 統合の場合は統合先を表示 -->
+                    {% if reservation.display_target_organization %}
+                      <span class="badge bg-warning text-dark">統合先:</span> {{ reservation.display_target_organization.name }}
+                    {% else %}
+                      —
+                    {% endif %}
                   {% else %}
-                    —
+                    <!-- 統合以外は親組織を表示 -->
+                    {% if reservation.display_parent %}
+                      {{ reservation.display_parent.name }}
+                    {% elif reservation.depends_on %}
+                      <span class="badge bg-info">未来: {{ reservation.depends_on.data.name }}</span>
+                    {% else %}
+                      —
+                    {% endif %}
                   {% endif %}
                 </td>
                 <td>{{ reservation.scheduled_date|date:"Y年m月d日" }}</td>

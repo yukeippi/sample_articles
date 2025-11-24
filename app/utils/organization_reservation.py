@@ -48,16 +48,17 @@ class OrganizationReservationHelper:
                 pass  # 新規作成の場合はチェック不要
 
     @staticmethod
-    def create_reservation(action, scheduled_date, organization=None, name=None, parent=None, parent_reservation=None):
+    def create_reservation(action, scheduled_date, organization=None, name=None, parent=None, parent_reservation=None, target_organization=None):
         """組織の予約更新を作成
 
         Args:
-            action: 操作種別 ('create', 'update', 'delete')
+            action: 操作種別 ('create', 'update', 'delete', 'merge')
             scheduled_date: 適用予定日
-            organization: 対象組織（新規作成の場合はNone）
+            organization: 対象組織（新規作成の場合はNone、統合の場合は統合元組織）
             name: 組織名（新規作成/更新の場合）
             parent: 親組織（既存の組織）
             parent_reservation: 親組織（未来の予約更新）
+            target_organization: 統合先組織（統合の場合のみ）
 
         Raises:
             ValueError: 階層が不正な場合、または循環参照が検出された場合
@@ -79,6 +80,14 @@ class OrganizationReservationHelper:
         elif parent is None and action in [Reservation.ACTION_CREATE, Reservation.ACTION_UPDATE]:
             # 親をNullに設定する場合（ルート組織にする）
             data['parent_id'] = None
+
+        # 統合の場合は統合先組織を保存
+        if action == Reservation.ACTION_MERGE:
+            if not organization:
+                raise ValueError('統合元組織を指定してください')
+            if not target_organization:
+                raise ValueError('統合先組織を指定してください')
+            data['target_organization_id'] = str(target_organization.id)
 
         # parent_reservationが指定されている場合は、depends_onに設定
         depends_on = parent_reservation if parent_reservation else None
@@ -169,12 +178,28 @@ class OrganizationReservationHelper:
                 org = Organization.objects.get(id=reservation.object_id)
                 org.delete()
 
+            elif reservation.action == Reservation.ACTION_MERGE:
+                # 統合
+                if not reservation.object_id:
+                    raise ValueError('統合元組織が指定されていません')
+
+                target_organization_id = reservation.data.get('target_organization_id')
+                if not target_organization_id:
+                    raise ValueError('統合先組織が指定されていません')
+
+                source_org = Organization.objects.get(id=reservation.object_id)
+                target_org = Organization.objects.get(id=target_organization_id)
+
+                # 統合実行
+                source_org.merge_into(target_org)
+                org = None  # 統合後は統合元組織は削除される
+
             # ステータスを適用済みに変更
             reservation.status_id = UpdateStatus.APPLIED
             reservation.applied_at = timezone.now()
             reservation.save()
 
-            return org if reservation.action != Reservation.ACTION_DELETE else None
+            return org if reservation.action not in [Reservation.ACTION_DELETE, Reservation.ACTION_MERGE] else None
 
     @staticmethod
     def get_pending_reservations(scheduled_date=None):
@@ -206,6 +231,7 @@ class OrganizationReservationHelper:
                 'organization': Organization or None,
                 'name': str,
                 'parent': Organization or None,
+                'target_organization': Organization or None (統合の場合のみ),
                 'scheduled_date': date,
                 'status': str,
             }
@@ -225,6 +251,14 @@ class OrganizationReservationHelper:
             except Organization.DoesNotExist:
                 pass
 
+        target_organization = None
+        target_organization_id = reservation.data.get('target_organization_id')
+        if target_organization_id:
+            try:
+                target_organization = Organization.objects.get(id=target_organization_id)
+            except Organization.DoesNotExist:
+                pass
+
         return {
             'id': reservation.id,
             'action': reservation.action,
@@ -232,6 +266,7 @@ class OrganizationReservationHelper:
             'organization': organization,
             'name': reservation.data.get('name'),
             'parent': parent,
+            'target_organization': target_organization,
             'scheduled_date': reservation.scheduled_date,
             'status': reservation.status,
             'depends_on': reservation.depends_on,

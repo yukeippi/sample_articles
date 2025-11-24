@@ -55,6 +55,7 @@ class OrganizationReservationForm(forms.Form):
         ('create', '新規作成'),
         ('update', '更新'),
         ('delete', '削除'),
+        ('merge', '統合'),
     ]
 
     organization = forms.ModelChoiceField(
@@ -88,6 +89,13 @@ class OrganizationReservationForm(forms.Form):
         help_text='未適用の新規作成予約を親として指定する場合に選択',
         widget=forms.Select(attrs={'class': 'form-select'}),
     )
+    target_organization = forms.ModelChoiceField(
+        queryset=Organization.objects.all(),
+        required=False,
+        label='統合先組織',
+        help_text='統合の場合のみ：統合元組織がこの組織に取り込まれます',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
     scheduled_date = forms.DateField(
         label='適用予定日',
         widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
@@ -113,6 +121,7 @@ class OrganizationReservationForm(forms.Form):
         name = cleaned_data.get('name')
         parent = cleaned_data.get('parent')
         parent_reservation = cleaned_data.get('parent_reservation')
+        target_organization = cleaned_data.get('target_organization')
 
         if action == 'create':
             if not name:
@@ -122,6 +131,16 @@ class OrganizationReservationForm(forms.Form):
         elif action in ['update', 'delete']:
             if not organization:
                 raise forms.ValidationError('更新/削除の場合、対象組織は必須です。')
+        elif action == 'merge':
+            if not organization:
+                raise forms.ValidationError('統合の場合、統合元組織は必須です。')
+            if not target_organization:
+                raise forms.ValidationError('統合の場合、統合先組織は必須です。')
+            if organization == target_organization:
+                raise forms.ValidationError('統合元と統合先に同じ組織を指定することはできません。')
+            # 統合先が統合元の子孫でないかチェック
+            if target_organization in organization.get_descendants():
+                raise forms.ValidationError('統合元の子孫組織を統合先に指定することはできません。')
 
         # 親組織と親予約の両方が指定されている場合はエラー
         if parent and parent_reservation:

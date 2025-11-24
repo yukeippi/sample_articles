@@ -30,6 +30,7 @@ class OrganizationReservationListView(LoginRequiredMixin, View):
             reservation.display_organization = formatted['organization']
             reservation.display_name = formatted['name']
             reservation.display_parent = formatted['parent']
+            reservation.display_target_organization = formatted.get('target_organization')
             reservation.display_action = formatted['action_display']
             reservations_with_info.append(reservation)
 
@@ -57,6 +58,7 @@ class OrganizationReservationCreateView(LoginRequiredMixin, View):
                 name=form.cleaned_data.get('name'),
                 parent=form.cleaned_data.get('parent'),
                 parent_reservation=form.cleaned_data.get('parent_reservation'),
+                target_organization=form.cleaned_data.get('target_organization'),
             )
             return redirect('app:organization_reservation_list')
         return render(request, 'reservations/form.html', {'form': form})
@@ -76,6 +78,7 @@ class OrganizationReservationUpdateView(LoginRequiredMixin, View):
             'name': formatted['name'],
             'parent': formatted['parent'],
             'parent_reservation': formatted.get('depends_on'),
+            'target_organization': formatted.get('target_organization'),
             'scheduled_date': formatted['scheduled_date'],
         })
         return render(request, 'reservations/form.html', {
@@ -100,6 +103,8 @@ class OrganizationReservationUpdateView(LoginRequiredMixin, View):
                 data['parent_id'] = str(form.cleaned_data['parent'].id)
             elif 'parent' in form.cleaned_data and form.cleaned_data['parent'] is None:
                 data['parent_id'] = None
+            if form.cleaned_data.get('target_organization'):
+                data['target_organization_id'] = str(form.cleaned_data['target_organization'].id)
             reservation.data = data
             reservation.save()
 

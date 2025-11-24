@@ -37,11 +37,13 @@ class Reservation(TimestampedModel):
     ACTION_CREATE = 'create'
     ACTION_UPDATE = 'update'
     ACTION_DELETE = 'delete'
+    ACTION_MERGE = 'merge'
 
     ACTION_CHOICES = [
         (ACTION_CREATE, '新規作成'),
         (ACTION_UPDATE, '更新'),
         (ACTION_DELETE, '削除'),
+        (ACTION_MERGE, '統合'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, verbose_name='ID')
