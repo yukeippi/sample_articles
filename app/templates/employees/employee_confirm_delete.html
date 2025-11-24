@@ -1,0 +1,24 @@
+{% extends "base/base.html" %}
+
+{% block title %}社員削除確認{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>社員削除確認</h1>
+
+    <div class="alert alert-warning mt-4">
+        <h5>以下の社員を削除してもよろしいですか?</h5>
+        <p class="mb-0">
+            <strong>氏名:</strong> {{ object.name }}<br>
+            <strong>メールアドレス:</strong> {{ object.email }}<br>
+            <strong>所属組織:</strong> {{ object.organization.name }}
+        </p>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">削除</button>
+        <a href="{% url 'app:employee_list' %}" class="btn btn-secondary">キャンセル</a>
+    </form>
+</div>
+{% endblock %}

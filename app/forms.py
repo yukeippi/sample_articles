@@ -1,6 +1,6 @@
 from django import forms
 
-from app.models import Article, Organization, Reservation
+from app.models import Article, Employee, Organization, Reservation
 
 
 class ArticleForm(forms.ModelForm):
@@ -128,3 +128,21 @@ class OrganizationReservationForm(forms.Form):
             raise forms.ValidationError('親組織（既存）と親組織（未来の予約）は同時に指定できません。どちらか一方を選択してください。')
 
         return cleaned_data
+
+
+class EmployeeForm(forms.ModelForm):
+    """社員の作成・編集フォーム"""
+
+    class Meta:
+        model = Employee
+        fields = ['name', 'email', 'organization']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '氏名を入力'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'メールアドレスを入力'}),
+            'organization': forms.Select(attrs={'class': 'form-select'}),
+        }
+        labels = {
+            'name': '氏名',
+            'email': 'メールアドレス',
+            'organization': '所属組織',
+        }

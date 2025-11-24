@@ -1,0 +1,44 @@
+{% extends "base/base.html" %}
+
+{% block title %}社員一覧{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>社員一覧</h1>
+        <a href="{% url 'app:employee_create' %}" class="btn btn-primary">新規社員を追加</a>
+    </div>
+
+    {% if employees %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>氏名</th>
+                        <th>メールアドレス</th>
+                        <th>所属組織</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for employee in employees %}
+                    <tr>
+                        <td>{{ employee.name }}</td>
+                        <td>{{ employee.email }}</td>
+                        <td>{{ employee.organization.name }}</td>
+                        <td>
+                            <a href="{% url 'app:employee_update' employee.pk %}" class="btn btn-sm btn-outline-primary">編集</a>
+                            <a href="{% url 'app:employee_delete' employee.pk %}" class="btn btn-sm btn-outline-danger">削除</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            社員が登録されていません。
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
