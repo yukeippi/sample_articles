@@ -47,6 +47,11 @@ urlpatterns = [
         name='organization_delete',
     ),
     path(
+        'organizations/merge/',
+        views.OrganizationMergeView.as_view(),
+        name='organization_merge',
+    ),
+    path(
         'organizations/preview/',
         views.OrganizationPreviewView.as_view(),
         name='organization_preview',

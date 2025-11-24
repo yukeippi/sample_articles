@@ -146,3 +146,45 @@ class EmployeeForm(forms.ModelForm):
             'email': 'メールアドレス',
             'organization': '所属組織',
         }
+
+
+class OrganizationMergeForm(forms.Form):
+    """組織統合フォーム"""
+
+    source_organization = forms.ModelChoiceField(
+        queryset=Organization.objects.all(),
+        label='統合元組織',
+        help_text='この組織が統合先組織に取り込まれます',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    target_organization = forms.ModelChoiceField(
+        queryset=Organization.objects.all(),
+        label='統合先組織',
+        help_text='統合元組織の社員と子組織がこの組織に移動します',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['source_organization'].queryset = Organization.objects.all()
+        self.fields['target_organization'].queryset = Organization.objects.all()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        source = cleaned_data.get('source_organization')
+        target = cleaned_data.get('target_organization')
+
+        if source and target:
+            # 同じ組織を選択していないかチェック
+            if source.pk == target.pk:
+                raise forms.ValidationError('統合元と統合先に同じ組織を指定することはできません。')
+
+            # 統合先が削除済みでないかチェック
+            if target.deleted_at is not None:
+                raise forms.ValidationError('削除済みの組織を統合先に指定することはできません。')
+
+            # 統合先が統合元の子孫でないかチェック
+            if target in source.get_descendants():
+                raise forms.ValidationError('統合元の子孫組織を統合先に指定することはできません。')
+
+        return cleaned_data

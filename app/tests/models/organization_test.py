@@ -252,3 +252,152 @@ class TestOrganizationQueries:
         deleted_orgs = Organization.objects.only_deleted()
         assert org1 in deleted_orgs
         assert org2 not in deleted_orgs
+
+
+@pytest.mark.django_db
+class TestOrganizationMerge:
+    """組織統合のテスト"""
+
+    def test_merge_basic(self):
+        """基本的な組織統合"""
+        org_a = OrganizationFactory.create(name='組織A')
+        org_b = OrganizationFactory.create(name='組織B')
+
+        # 組織Bを組織Aに統合
+        org_b.merge_into(org_a)
+
+        # 組織Bは論理削除される
+        assert not Organization.objects.filter(id=org_b.id).exists()
+        org_b_deleted = Organization.objects.with_deleted().get(id=org_b.id)
+        assert org_b_deleted.is_deleted
+
+        # 組織Aは残る
+        assert Organization.objects.filter(id=org_a.id).exists()
+
+    def test_merge_transfers_employees(self):
+        """組織統合で社員が移動する"""
+        org_a = OrganizationFactory.create(name='組織A')
+        org_b = OrganizationFactory.create(name='組織B')
+
+        # 組織Bに社員を追加
+        employees_b = EmployeeFactory.create_batch(3, organization=org_b)
+
+        # 組織Bを組織Aに統合
+        org_b.merge_into(org_a)
+
+        # 組織Bの社員が組織Aに移動
+        for employee in employees_b:
+            employee.refresh_from_db()
+            assert employee.organization == org_a
+
+    def test_merge_transfers_children(self):
+        """組織統合で子組織が移動する"""
+        org_a = OrganizationFactory.create(name='組織A')
+        org_b = OrganizationFactory.create(name='組織B')
+
+        # 組織Bに子組織を追加
+        child1 = OrganizationFactory.create(name='組織B-子1', parent=org_b)
+        child2 = OrganizationFactory.create(name='組織B-子2', parent=org_b)
+
+        # 組織Bを組織Aに統合
+        org_b.merge_into(org_a)
+
+        # 組織Bの子組織が組織Aの子組織になる
+        child1.refresh_from_db()
+        child2.refresh_from_db()
+        assert child1.parent == org_a
+        assert child2.parent == org_a
+
+    def test_merge_with_employees_and_children(self):
+        """社員と子組織の両方がある組織の統合"""
+        org_a = OrganizationFactory.create(name='組織A')
+        org_b = OrganizationFactory.create(name='組織B')
+
+        # 組織Bに社員と子組織を追加
+        employees_b = EmployeeFactory.create_batch(2, organization=org_b)
+        child1 = OrganizationFactory.create(name='組織B-子1', parent=org_b)
+        child2 = OrganizationFactory.create(name='組織B-子2', parent=org_b)
+
+        # 子組織にも社員を追加
+        child1_employees = EmployeeFactory.create_batch(2, organization=child1)
+
+        # 組織Bを組織Aに統合
+        org_b.merge_into(org_a)
+
+        # 組織Bの社員が組織Aに移動
+        for employee in employees_b:
+            employee.refresh_from_db()
+            assert employee.organization == org_a
+
+        # 組織Bの子組織が組織Aの子組織になる
+        child1.refresh_from_db()
+        child2.refresh_from_db()
+        assert child1.parent == org_a
+        assert child2.parent == org_a
+
+        # 子組織の社員はそのまま
+        for employee in child1_employees:
+            employee.refresh_from_db()
+            assert employee.organization == child1
+
+    def test_merge_to_self_raises_error(self):
+        """自分自身への統合はエラー"""
+        org = OrganizationFactory.create(name='組織A')
+
+        with pytest.raises(ValueError, match='自分自身に統合することはできません'):
+            org.merge_into(org)
+
+    def test_merge_to_deleted_organization_raises_error(self):
+        """削除済み組織への統合はエラー"""
+        org_a = OrganizationFactory.create(name='組織A')
+        org_b = OrganizationFactory.create(name='組織B')
+
+        # 組織Aを削除
+        org_a.delete()
+
+        with pytest.raises(ValueError, match='削除済みの組織には統合できません'):
+            org_b.merge_into(org_a)
+
+    def test_merge_to_descendant_raises_error(self):
+        """子孫組織への統合はエラー"""
+        parent = OrganizationFactory.create(name='親組織')
+        child = OrganizationFactory.create(name='子組織', parent=parent)
+        grandchild = OrganizationFactory.create(name='孫組織', parent=child)
+
+        # 親組織を子組織に統合しようとするとエラー
+        with pytest.raises(ValueError, match='子孫組織には統合できません'):
+            parent.merge_into(child)
+
+        # 親組織を孫組織に統合しようとするとエラー
+        with pytest.raises(ValueError, match='子孫組織には統合できません'):
+            parent.merge_into(grandchild)
+
+    def test_merge_invalid_target_type_raises_error(self):
+        """無効な型の統合先を指定するとエラー"""
+        org = OrganizationFactory.create(name='組織A')
+
+        with pytest.raises(ValueError, match='統合先は組織オブジェクトである必要があります'):
+            org.merge_into('invalid_type')
+
+    def test_merge_preserves_target_organization(self):
+        """統合先組織は変更されない"""
+        org_a = OrganizationFactory.create(name='組織A')
+        org_b = OrganizationFactory.create(name='組織B')
+
+        # 組織Aに既存の社員を追加
+        employees_a = EmployeeFactory.create_batch(2, organization=org_a)
+
+        # 組織Bに社員を追加
+        employees_b = EmployeeFactory.create_batch(3, organization=org_b)
+
+        # 組織Bを組織Aに統合
+        org_b.merge_into(org_a)
+
+        # 組織Aの既存社員はそのまま
+        for employee in employees_a:
+            employee.refresh_from_db()
+            assert employee.organization == org_a
+
+        # 組織Aの社員数が増えている
+        org_a.refresh_from_db()
+        assert org_a.employees.count() == 5  # 元の2人 + 統合された3人

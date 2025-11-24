@@ -17,6 +17,7 @@ from app.views.organization import (
     OrganizationCreateView,
     OrganizationDeleteView,
     OrganizationListView,
+    OrganizationMergeView,
     OrganizationUpdateView,
 )
 from app.views.reservation import (
@@ -46,6 +47,7 @@ __all__ = [
     'OrganizationCreateView',
     'OrganizationUpdateView',
     'OrganizationDeleteView',
+    'OrganizationMergeView',
     # Reservation views
     'OrganizationReservationListView',
     'OrganizationReservationCreateView',

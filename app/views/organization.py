@@ -1,10 +1,11 @@
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DeleteView, UpdateView
 
-from app.forms import OrganizationForm
+from app.forms import OrganizationForm, OrganizationMergeForm
 from app.models import Organization
 from app.utils.tree import build_tree, get_tree_html
 
@@ -59,3 +60,31 @@ class OrganizationDeleteView(LoginRequiredMixin, DeleteView):
     model = Organization
     template_name = 'organizations/confirm_delete.html'
     success_url = reverse_lazy('app:organization_list')
+
+
+class OrganizationMergeView(LoginRequiredMixin, View):
+    """組織統合ビュー"""
+
+    def get(self, request):
+        form = OrganizationMergeForm()
+        return render(request, 'organizations/merge.html', {'form': form})
+
+    def post(self, request):
+        form = OrganizationMergeForm(request.POST)
+        if form.is_valid():
+            source = form.cleaned_data['source_organization']
+            target = form.cleaned_data['target_organization']
+
+            try:
+                # 統合実行
+                source.merge_into(target)
+                messages.success(
+                    request,
+                    f'組織「{source.name}」を「{target.name}」に統合しました。'
+                )
+                return redirect('app:organization_list')
+            except ValueError as e:
+                messages.error(request, f'統合に失敗しました: {str(e)}')
+                return render(request, 'organizations/merge.html', {'form': form})
+
+        return render(request, 'organizations/merge.html', {'form': form})

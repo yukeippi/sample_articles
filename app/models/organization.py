@@ -61,3 +61,38 @@ class Organization(TimestampedModel, SoftDeleteModel):
 
         # 自身を論理削除
         super().delete(using=using, keep_parents=keep_parents)
+
+    def merge_into(self, target_organization):
+        """
+        この組織を他の組織に統合する
+
+        Args:
+            target_organization: 統合先の組織
+
+        処理内容:
+        - この組織に所属する社員を全て統合先組織に移動
+        - この組織の子組織を全て統合先組織の子組織に変更
+        - この組織を論理削除
+        """
+        if not isinstance(target_organization, Organization):
+            raise ValueError('統合先は組織オブジェクトである必要があります')
+
+        if target_organization.pk == self.pk:
+            raise ValueError('自分自身に統合することはできません')
+
+        # 統合先が削除済みの場合はエラー
+        if target_organization.deleted_at is not None:
+            raise ValueError('削除済みの組織には統合できません')
+
+        # 統合先が自分の子孫の場合はエラー（循環参照を防ぐ）
+        if target_organization in self.get_descendants():
+            raise ValueError('子孫組織には統合できません')
+
+        # 所属社員を統合先組織に移動
+        self.employees.update(organization=target_organization)
+
+        # 子組織の親を統合先組織に変更
+        self.children.update(parent=target_organization)
+
+        # 自身を論理削除
+        self.delete()
