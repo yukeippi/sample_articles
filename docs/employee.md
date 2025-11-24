@@ -15,7 +15,7 @@
 | id | UUID | PRIMARY KEY | 社員ID（uuid7） |
 | name | VARCHAR(200) | NOT NULL | 氏名 |
 | email | VARCHAR(254) | NOT NULL | メールアドレス |
-| organization_id | UUID | FOREIGN KEY, NOT NULL | 所属組織ID |
+| organization_id | UUID | FOREIGN KEY, NULL | 所属組織ID（NULL=未所属） |
 | deleted_at | TIMESTAMP | NULL | 削除日時（論理削除） |
 | created_at | TIMESTAMP | NOT NULL | 作成日時 |
 | updated_at | TIMESTAMP | NOT NULL | 更新日時 |
@@ -27,7 +27,8 @@
 
 **制約:**
 - `email`: アプリケーション側でユニーク制約（論理削除されていない社員のみ）
-- `organization`: PROTECT制約（組織削除時は社員が存在する場合削除できない）
+- `organization`: PROTECT制約（組織の物理削除時、社員が存在する場合削除できない）
+- `organization` が NULL の場合は未所属社員となる
 
 ## データ例
 
@@ -41,6 +42,19 @@
   "deleted_at": null,
   "created_at": "2025-01-15 10:00:00",
   "updated_at": "2025-01-15 10:00:00"
+}
+```
+
+### 未所属の社員（organization_id が NULL）
+```json
+{
+  "id": "abcdef12-3456-7890-abcd-ef1234567890",
+  "name": "佐藤次郎",
+  "email": "sato.jiro@example.com",
+  "organization_id": null,
+  "deleted_at": null,
+  "created_at": "2025-01-20 14:00:00",
+  "updated_at": "2025-01-20 14:00:00"
 }
 ```
 
@@ -86,6 +100,8 @@ class Employee(TimestampedModel, SoftDeleteModel):
     organization = models.ForeignKey(
         'Organization',
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         related_name='employees',
         verbose_name='所属組織',
     )
@@ -372,17 +388,33 @@ if org.employees.exists():
 
 ### 論理削除時の動作
 
-**組織を論理削除:**
+**組織を論理削除すると、所属社員は未所属になります:**
 
 ```python
-# 組織を論理削除（社員との関係は維持される）
+# 組織を論理削除
 org = Organization.objects.get(name='営業部')
-org.delete()  # 論理削除
+employees = org.employees.all()  # [山田太郎, 田中花子, ...]
 
-# 社員からは削除済み組織を参照可能（物理的には存在）
-employee = Employee.objects.get(email='yamada.taro@example.com')
-print(employee.organization.name)  # '営業部'（削除済みでも参照可能）
-print(employee.organization.is_deleted)  # True
+org.delete()  # 論理削除を実行
+
+# 所属社員は未所属になる（organization が NULL に設定される）
+for employee in employees:
+    employee.refresh_from_db()
+    print(employee.organization)  # None（未所属化）
+
+# 組織自体は論理削除される
+org.refresh_from_db()
+print(org.is_deleted)  # True
+```
+
+**未所属社員の取得:**
+
+```python
+# 未所属の社員を取得
+unaffiliated_employees = Employee.objects.filter(organization__isnull=True)
+
+# 所属組織がある社員のみ取得
+affiliated_employees = Employee.objects.filter(organization__isnull=False)
 ```
 
 **組織と社員を一緒に論理削除:**
@@ -457,13 +489,13 @@ EmployeeReservationHelper.create_reservation(
 
 ### 2. 組織との関連
 
-- 社員は必ず一つの組織に所属している必要があります
-- 所属組織がない社員は作成できません
-- 論理削除された組織にも社員は紐付けられます（外部キーは物理的に維持）
+- 社員は組織に所属することができます（NULL 許可）
+- 所属組織が論理削除されると、社員は未所属（organization=NULL）になります
+- 未所属の社員も作成可能です
 
 ### 3. データ整合性
 
-- **論理削除**: 組織と社員の関係は維持されます
+- **論理削除**: 組織が論理削除されると、所属社員の organization は NULL になります
 - **物理削除**: `PROTECT` 制約により、所属社員が存在する場合は組織を物理削除できません
 - 論理削除されたレコードもテーブルに残るため、定期的なクリーンアップが推奨されます
 
@@ -481,6 +513,8 @@ EmployeeReservationHelper.create_reservation(
 - **論理削除（Soft Delete）** に対応し、データの復元が可能
 - **メールアドレスのアプリケーション側バリデーション** で有効な社員の一意性を確保
 - **PROTECT制約** で組織との整合性を維持（物理削除時）
+- **NULL許可の組織フィールド** により未所属社員をサポート
+- **組織の論理削除時に自動的に未所属化** される
 - **SoftDeleteModel継承** により、削除済みレコードの管理が容易
 - **予約更新システムとの統合** を想定した設計
 

@@ -50,3 +50,14 @@ class Organization(TimestampedModel, SoftDeleteModel):
     def get_level(self):
         """階層レベルを取得（ルート=0）"""
         return len(self.get_ancestors())
+
+    def delete(self, using=None, keep_parents=False):
+        """論理削除（子組織の親と所属社員の組織をNULLに設定）"""
+        # 子組織の親をNULLに設定（ルート組織化）
+        self.children.update(parent=None)
+
+        # 所属社員の組織をNULLに設定（未所属化）
+        self.employees.update(organization=None)
+
+        # 自身を論理削除
+        super().delete(using=using, keep_parents=keep_parents)

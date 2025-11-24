@@ -15,6 +15,8 @@ class Employee(TimestampedModel, SoftDeleteModel):
     organization = models.ForeignKey(
         'Organization',
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         related_name='employees',
         verbose_name='所属組織',
     )

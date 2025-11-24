@@ -26,8 +26,9 @@
 - `idx_organization_deleted_at`: (deleted_at)
 
 **制約:**
-- `parent`: CASCADE制約（親組織削除時は子組織も削除される）
+- `parent`: CASCADE制約（親組織の物理削除時は子組織も物理削除される）
 - 自己参照外部キー（組織は他の組織を親として持つことができる）
+- `parent` が NULL の場合はルート組織となる
 
 ## データ構造
 
@@ -144,13 +145,25 @@ class Organization(TimestampedModel, SoftDeleteModel):
     def get_level(self):
         """階層レベルを取得（ルート=0）"""
         return len(self.get_ancestors())
+
+    def delete(self, using=None, keep_parents=False):
+        """論理削除（子組織の親と所属社員の組織をNULLに設定）"""
+        # 子組織の親をNULLに設定（ルート組織化）
+        self.children.update(parent=None)
+
+        # 所属社員の組織をNULLに設定（未所属化）
+        self.employees.update(organization=None)
+
+        # 自身を論理削除
+        super().delete(using=using, keep_parents=keep_parents)
 ```
 
 **主要な特徴:**
 - `SoftDeleteModel` を継承し、論理削除機能を追加
 - 自己参照外部キー `parent` で階層構造を表現
-- `CASCADE` 制約により、親組織削除時に子組織も削除
-- 便利メソッド: `get_ancestors()`, `get_descendants()`, `get_level()`
+- `CASCADE` 制約により、親組織の物理削除時に子組織も物理削除される
+- 論理削除時は子組織を独立（ルート組織化）し、所属社員を未所属化する
+- 便利メソッド: `get_ancestors()`, `get_descendants()`, `get_level()`, `delete()`
 
 ## 主要機能
 
@@ -233,7 +246,35 @@ org.delete()  # deleted_at に現在時刻が設定される
 # 削除されたかどうか確認
 print(org.is_deleted)  # True
 
-# 注意: CASCADE により子組織も論理削除される
+# 論理削除時の動作:
+# - 子組織の parent は NULL に設定される（ルート組織化）
+# - 所属社員の organization は NULL に設定される（未所属化）
+```
+
+**論理削除の具体例:**
+```python
+# 削除前の状態
+org = Organization.objects.get(name='営業部')
+children = org.children.all()  # [営業一課, 営業二課]
+employees = org.employees.all()  # [山田太郎, 田中花子, ...]
+
+# 論理削除を実行
+org.delete()
+
+# 削除後の状態
+# 1. 子組織はルート組織になる
+for child in children:
+    child.refresh_from_db()
+    print(child.parent)  # None（ルート組織化）
+
+# 2. 所属社員は未所属になる
+for employee in employees:
+    employee.refresh_from_db()
+    print(employee.organization)  # None（未所属化）
+
+# 3. 組織自体は論理削除される
+org.refresh_from_db()
+print(org.is_deleted)  # True
 ```
 
 **削除の取り消し（復元）:**
@@ -467,59 +508,88 @@ if org.children.exists():
 
 ## 論理削除との関係
 
-### CASCADE削除の動作
+### 論理削除の動作（実装済み）
 
-**論理削除の場合:**
+本システムでは、組織の論理削除時に以下の処理を行うように `delete()` メソッドをオーバーライドしています。
 
-親組織を論理削除すると、Django の `on_delete=models.CASCADE` は **物理削除** を試みます。
-
-**問題点:**
+**実装内容:**
 ```python
-# 親組織を論理削除
-parent_org = Organization.objects.get(name='営業部')
-parent_org.delete()  # SoftDeleteModel の delete() が呼ばれる
+def delete(self, using=None, keep_parents=False):
+    """論理削除（子組織の親と所属社員の組織をNULLに設定）"""
+    # 子組織の親をNULLに設定（ルート組織化）
+    self.children.update(parent=None)
 
-# しかし、CASCADE により子組織は物理削除されようとする
-# これは意図しない動作の可能性がある
+    # 所属社員の組織をNULLに設定（未所属化）
+    self.employees.update(organization=None)
+
+    # 自身を論理削除
+    super().delete(using=using, keep_parents=keep_parents)
 ```
 
-**解決策:**
+**動作:**
+1. **子組織**: parent を NULL に設定し、ルート組織として独立させる
+2. **所属社員**: organization を NULL に設定し、未所属社員とする
+3. **組織自体**: deleted_at に現在時刻を設定し、論理削除する
 
-親組織の論理削除時に、子組織も論理削除するようにオーバーライドが必要です。
-
+**具体例:**
 ```python
-class Organization(TimestampedModel, SoftDeleteModel):
-    # ...
+# 削除前
+営業部
+├── 営業一課
+├── 営業二課
+└── 社員: 山田太郎、田中花子
 
-    def delete(self, using=None, keep_parents=False):
-        """論理削除（子組織も論理削除）"""
-        # 子組織を論理削除
-        for child in self.children.all():
-            child.delete()
+# 営業部を論理削除
+org = Organization.objects.get(name='営業部')
+org.delete()
 
-        # 自身を論理削除
-        super().delete(using=using, keep_parents=keep_parents)
+# 削除後
+営業部（deleted_at: 2025-01-24 10:00:00）
+営業一課（parent: None）※ルート組織化
+営業二課（parent: None）※ルート組織化
+山田太郎（organization: None）※未所属
+田中花子（organization: None）※未所属
 ```
 
-**注意:** この実装は現在モデルに含まれていません。必要に応じて追加してください。
+### 物理削除の動作
+
+**CASCADE制約:**
+
+物理削除（`hard_delete()`）の場合、Django の `on_delete=models.CASCADE` が適用され、子組織も物理削除されます。
+
+```python
+# 親組織を物理削除
+org = Organization.objects.get(name='営業部')
+org.hard_delete()  # 子組織も物理削除される
+```
 
 ## 社員との関連
 
-### PROTECT制約
+### 論理削除時の動作
 
-組織には社員が所属しており、`Employee` モデルは `on_delete=models.PROTECT` で組織を参照しています。
+組織を論理削除すると、所属社員の `organization` フィールドは NULL に設定され、未所属社員となります。
 
 **論理削除の場合:**
 ```python
 # 社員が所属している組織を論理削除
 org = Organization.objects.get(name='営業部')
-org.delete()  # OK（社員との関係は維持される）
+employees = org.employees.all()  # [山田太郎, 田中花子, ...]
 
-# 社員から削除済み組織を参照可能
-employee = Employee.objects.get(email='yamada.taro@example.com')
-print(employee.organization.name)  # '営業部'（削除済みでも参照可能）
-print(employee.organization.is_deleted)  # True
+org.delete()  # 論理削除を実行
+
+# 所属社員は未所属になる
+for employee in employees:
+    employee.refresh_from_db()
+    print(employee.organization)  # None（未所属化）
+
+# 組織自体は論理削除される
+org.refresh_from_db()
+print(org.is_deleted)  # True
 ```
+
+### PROTECT制約（物理削除時）
+
+`Employee` モデルは `on_delete=models.PROTECT` で組織を参照しているため、物理削除時に社員が存在すると削除できません。
 
 **物理削除の場合:**
 ```python
@@ -527,6 +597,13 @@ print(employee.organization.is_deleted)  # True
 org = Organization.objects.get(name='営業部')
 if org.employees.exists():
     org.hard_delete()  # ProtectedError が発生
+
+# 物理削除するには、先に社員を削除または移動する必要がある
+for employee in org.employees.all():
+    employee.organization = other_org  # 他の組織に異動
+    employee.save()
+
+org.hard_delete()  # OK
 ```
 
 ## 予約更新システムとの統合
