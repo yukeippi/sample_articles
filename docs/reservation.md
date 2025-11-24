@@ -354,37 +354,38 @@ python manage.py apply_organization_reservations --dry-run
 
 指定日時点での組織構造をツリー表示。未適用の予約更新も含めてシミュレーション。
 
-## 他のモデルへの拡張方法
+## 実装済み: 社員モデルへの拡張
 
-### 例: 社員モデルへの拡張
+社員モデルに対する予約更新機能が実装済みです。
 
-#### 1. ヘルパークラスの作成
+### 実装内容
+
+#### 1. ヘルパークラス (`app/utils/employee_reservation.py`)
 
 ```python
-# app/utils/employee_reservation.py
-
-from django.contrib.contenttypes.models import ContentType
-from app.models import Employee, Reservation, UpdateStatus
-
 class EmployeeReservationHelper:
     """社員予約更新のヘルパークラス"""
 
     @staticmethod
     def get_content_type():
+        """社員のContentTypeを取得"""
         return ContentType.objects.get_for_model(Employee)
 
     @staticmethod
     def create_reservation(action, scheduled_date, employee=None,
-                          name=None, department=None, position=None):
+                          name=None, email=None, organization=None):
+        """社員の予約更新を作成"""
         content_type = EmployeeReservationHelper.get_content_type()
 
         data = {}
         if name:
             data['name'] = name
-        if department:
-            data['department_id'] = str(department.id)
-        if position:
-            data['position'] = position
+        if email:
+            data['email'] = email
+        if organization:
+            data['organization_id'] = str(organization.id)
+        elif organization is None and action in [Reservation.ACTION_CREATE, Reservation.ACTION_UPDATE]:
+            data['organization_id'] = None
 
         return Reservation.objects.create(
             content_type=content_type,
@@ -397,34 +398,293 @@ class EmployeeReservationHelper:
 
     @staticmethod
     def apply_reservation(reservation):
-        # 社員固有の適用ロジック
+        """予約更新を適用"""
         if reservation.action == Reservation.ACTION_CREATE:
             employee = Employee.objects.create(
                 name=reservation.data['name'],
-                department_id=reservation.data.get('department_id'),
-                position=reservation.data.get('position'),
+                email=reservation.data['email'],
+                organization_id=reservation.data.get('organization_id'),
             )
             reservation.applied_object_id = employee.id
-        # ... 以下略
+        elif reservation.action == Reservation.ACTION_UPDATE:
+            employee = Employee.objects.get(id=reservation.object_id)
+            if 'name' in reservation.data:
+                employee.name = reservation.data['name']
+            if 'email' in reservation.data:
+                employee.email = reservation.data['email']
+            if 'organization_id' in reservation.data:
+                employee.organization_id = reservation.data['organization_id']
+            employee.save()
+        elif reservation.action == Reservation.ACTION_DELETE:
+            employee = Employee.objects.get(id=reservation.object_id)
+            employee.delete()
+
+        reservation.status_id = UpdateStatus.APPLIED
+        reservation.applied_at = timezone.now()
+        reservation.save()
+
+    @staticmethod
+    def get_pending_reservations(scheduled_date=None):
+        """予約中の社員予約更新を取得"""
+        content_type = EmployeeReservationHelper.get_content_type()
+        queryset = Reservation.objects.filter(
+            content_type=content_type,
+            status_id=UpdateStatus.PENDING,
+        )
+        if scheduled_date:
+            queryset = queryset.filter(scheduled_date__lte=scheduled_date)
+        return queryset.order_by('scheduled_date', 'created_at')
+
+    @staticmethod
+    def format_for_display(reservation):
+        """予約更新を表示用にフォーマット"""
+        # 表示用のデータを整形して返却
+        # ...
 ```
 
-#### 2. フォームの作成
+#### 2. フォーム (`app/forms.py`)
 
 ```python
-# app/forms.py
-
 class EmployeeReservationForm(forms.Form):
-    employee = forms.ModelChoiceField(...)
-    action = forms.ChoiceField(...)
-    name = forms.CharField(...)
-    department = forms.ModelChoiceField(...)
-    position = forms.CharField(...)
-    scheduled_date = forms.DateField(...)
+    """社員予約更新フォーム"""
+
+    ACTION_CHOICES = [
+        ('create', '新規作成'),
+        ('update', '更新'),
+        ('delete', '削除'),
+    ]
+
+    employee = forms.ModelChoiceField(
+        queryset=Employee.objects.all(),
+        required=False,
+        label='対象社員',
+    )
+    action = forms.ChoiceField(
+        choices=ACTION_CHOICES,
+        label='操作種別',
+    )
+    name = forms.CharField(
+        max_length=200,
+        required=False,
+        label='氏名',
+    )
+    email = forms.EmailField(
+        required=False,
+        label='メールアドレス',
+    )
+    organization = forms.ModelChoiceField(
+        queryset=Organization.objects.all(),
+        required=False,
+        label='所属組織',
+    )
+    scheduled_date = forms.DateField(
+        label='適用予定日',
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        action = cleaned_data.get('action')
+        employee = cleaned_data.get('employee')
+        name = cleaned_data.get('name')
+        email = cleaned_data.get('email')
+
+        if action == 'create':
+            if not name or not email:
+                raise forms.ValidationError('新規作成の場合、氏名とメールアドレスは必須です。')
+        elif action in ['update', 'delete']:
+            if not employee:
+                raise forms.ValidationError('更新/削除の場合、対象社員は必須です。')
+        return cleaned_data
 ```
 
-#### 3. ビューとテンプレートの追加
+#### 3. ビュー (`app/views/employee.py`)
 
-組織と同様のパターンでビューとテンプレートを作成。
+```python
+class EmployeeReservationListView(LoginRequiredMixin, View):
+    """社員予約更新一覧ビュー"""
+    # 全ステータスの予約を取得し表示
+
+class EmployeeReservationCreateView(LoginRequiredMixin, View):
+    """社員予約更新作成ビュー"""
+    # フォームから予約を作成
+
+class EmployeeReservationUpdateView(LoginRequiredMixin, View):
+    """社員予約更新編集ビュー"""
+    # 予約中の予約を編集
+
+class EmployeeReservationDeleteView(LoginRequiredMixin, DeleteView):
+    """社員予約更新削除（キャンセル）ビュー"""
+    # 予約をキャンセル（ステータス変更）
+
+class EmployeePreviewView(LoginRequiredMixin, View):
+    """社員プレビュービュー"""
+    # 指定日時点での社員情報を予約更新を含めて表示
+```
+
+#### 4. URL設定 (`app/urls.py`)
+
+```python
+# 社員予約更新関連
+path('employees/reservations/',
+     views.EmployeeReservationListView.as_view(),
+     name='employee_reservation_list'),
+path('employees/reservations/new/',
+     views.EmployeeReservationCreateView.as_view(),
+     name='employee_reservation_create'),
+path('employees/reservations/<uuid:pk>/edit/',
+     views.EmployeeReservationUpdateView.as_view(),
+     name='employee_reservation_update'),
+path('employees/reservations/<uuid:pk>/delete/',
+     views.EmployeeReservationDeleteView.as_view(),
+     name='employee_reservation_delete'),
+path('employees/preview/',
+     views.EmployeePreviewView.as_view(),
+     name='employee_preview'),
+```
+
+### 使用方法
+
+#### 社員の新規作成を予約
+
+```python
+from app.utils.employee_reservation import EmployeeReservationHelper
+from datetime import date
+
+EmployeeReservationHelper.create_reservation(
+    action='create',
+    scheduled_date=date(2025, 4, 1),
+    name='山田太郎',
+    email='yamada.taro@example.com',
+    organization=org,  # Organizationオブジェクト
+)
+```
+
+#### 社員情報の更新を予約
+
+```python
+EmployeeReservationHelper.create_reservation(
+    action='update',
+    scheduled_date=date(2025, 5, 1),
+    employee=existing_employee,
+    name='山田次郎',  # 名前変更
+    organization=new_org,  # 組織異動
+)
+```
+
+#### 社員の退職を予約（削除）
+
+```python
+EmployeeReservationHelper.create_reservation(
+    action='delete',
+    scheduled_date=date(2025, 6, 30),
+    employee=employee_to_retire,
+)
+```
+
+### UIフロー
+
+#### 予約更新一覧
+- URL: `/employees/reservations/`
+- ヘッダーの「社員」メニュー → 「社員の予約更新」からアクセス
+- 表示内容:
+  - 操作種別（新規作成/更新/削除）
+  - 対象社員
+  - 氏名・メールアドレス・所属組織
+  - 適用予定日
+  - ステータス（予約中/適用済み/キャンセル済み）
+  - 操作ボタン（編集/キャンセル）
+
+#### 予約更新の作成
+- URL: `/employees/reservations/new/`
+- 予約更新一覧から「予約更新を作成」ボタンでアクセス
+- 入力項目:
+  - 操作種別: 新規作成/更新/削除（必須）
+  - 対象社員: （更新・削除の場合のみ必須）
+  - 氏名: （新規作成・更新の場合）
+  - メールアドレス: （新規作成・更新の場合）
+  - 所属組織: （任意、ドロップダウン）
+  - 適用予定日: （必須）
+
+#### プレビュー機能
+- URL: `/employees/preview/?date=YYYY-MM-DD`
+- 予約更新一覧から「プレビュー」ボタンでアクセス
+- 機能:
+  - 指定日時点での社員一覧を表示
+  - 予約更新（新規作成/更新/削除）をメモリ上でシミュレーション
+  - 新規作成予定の社員は水色でハイライト表示
+  - 日付選択フォームで任意の日付を確認可能
+
+### データ例
+
+#### 社員の新規作成予約
+
+```json
+{
+  "id": "employee-reservation-uuid",
+  "content_type_id": 6,  // Employee
+  "object_id": null,
+  "action": "create",
+  "data": {
+    "name": "山田太郎",
+    "email": "yamada.taro@example.com",
+    "organization_id": "org-uuid"
+  },
+  "depends_on_id": null,
+  "scheduled_date": "2025-04-01",
+  "status_id": "pending",
+  "applied_at": null,
+  "applied_object_id": null
+}
+```
+
+#### 社員情報の更新予約（組織異動）
+
+```json
+{
+  "id": "employee-update-uuid",
+  "content_type_id": 6,
+  "object_id": "existing-employee-uuid",
+  "action": "update",
+  "data": {
+    "organization_id": "new-org-uuid"
+  },
+  "depends_on_id": null,
+  "scheduled_date": "2025-04-01",
+  "status_id": "pending",
+  "applied_at": null,
+  "applied_object_id": null
+}
+```
+
+### 特徴
+
+- **組織との連携**: 組織の予約更新と同様に、社員の組織異動を予約可能
+- **プレビュー機能**: 予約更新適用後の社員一覧を事前確認
+- **キャンセル機能**: 適用前であればキャンセル可能（ステータス変更）
+- **組織と同じUI/UX**: 組織の予約更新機能と統一されたインターフェース
+
+### 組織予約更新との違い
+
+| 項目 | 組織 | 社員 |
+|------|------|------|
+| 操作種別 | 新規作成/更新/削除/統合 | 新規作成/更新/削除 |
+| 階層構造 | あり（親子関係） | なし |
+| depends_on | 使用可能（未来の組織を親指定） | 使用しない |
+| プレビュー表示 | ツリー表示 | テーブル表示 |
+| 依存関係解決 | トポロジカルソート必要 | 順序関係なし |
+
+## 他のモデルへの拡張方法
+
+上記の社員モデルの実装例を参考に、他のモデルにも同様のパターンで予約更新機能を追加できます。
+
+### 拡張手順
+
+1. ヘルパークラスの作成 (`app/utils/{model}_reservation.py`)
+2. フォームの作成 (`app/forms.py`)
+3. ビューの実装 (`app/views/{model}.py`)
+4. URLパターンの追加 (`app/urls.py`)
+5. テンプレートの作成 (`app/templates/{model}/reservations/`)
+6. ヘッダーメニューへのリンク追加 (`templates/base/base.html`)
 
 ## データ構造設計の利点
 
