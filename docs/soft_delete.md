@@ -252,26 +252,58 @@ employee = Employee.objects.get(email='yamada.taro@example.com')
 print(employee.organization.name)  # '営業部' （削除済みでも参照可能）
 ```
 
-### 2. ユニーク制約
+### 2. ユニーク制約（Employee モデルの実装例）
 
-論理削除されたレコードもユニーク制約の対象になります。
+**Employeeモデルでは、アプリケーション側でユニーク制約を実装しています。**
+
+論理削除されたレコードは制約の対象外になります。
 
 ```python
-# メールアドレスのユニーク制約
+# 社員を論理削除
 employee = Employee.objects.get(email='yamada.taro@example.com')
 employee.delete()  # 論理削除
 
-# 同じメールアドレスで新規作成しようとするとエラー
+# 同じメールアドレスで新規作成可能（削除済みは対象外）
 Employee.objects.create(
-    email='yamada.taro@example.com',  # IntegrityError が発生
+    email='yamada.taro@example.com',  # OK（employee は削除済み）
     name='山田次郎',
     organization=org
 )
 ```
 
-**解決策:**
-1. 削除時にメールアドレスを変更する
-2. ユニーク制約を `deleted_at IS NULL` の条件付きにする（パーシャルインデックス）
+**実装方法:**
+
+```python
+class Employee(TimestampedModel, SoftDeleteModel):
+    email = models.EmailField(verbose_name='メールアドレス')  # unique=True なし
+
+    def clean(self):
+        """バリデーション: 論理削除されていない社員のメールアドレスは重複不可"""
+        super().clean()
+
+        # 削除されていない社員の中で同じメールアドレスがないかチェック
+        query = Employee.objects.filter(email=self.email)
+
+        # 更新の場合は自分自身を除外
+        if self.pk:
+            query = query.exclude(pk=self.pk)
+
+        if query.exists():
+            raise ValidationError({
+                'email': 'このメールアドレスは既に使用されています。'
+            })
+
+    def save(self, *args, **kwargs):
+        """保存前にバリデーションを実行"""
+        self.full_clean()
+        super().save(*args, **kwargs)
+```
+
+`Employee.objects`は`SoftDeleteManager`を使用しているため、`deleted_at IS NULL`のレコードのみを自動的にチェックします。
+
+**他の解決策:**
+1. **パーシャルインデックス（PostgreSQL）**: DB側で `deleted_at IS NULL` の条件付きユニーク制約
+2. **削除時に値を変更**: メールアドレスに削除日時を付加（例: `email_20250201_153000`）
 
 ### 3. カスケード削除
 
