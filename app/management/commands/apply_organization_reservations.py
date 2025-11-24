@@ -3,7 +3,8 @@ from datetime import date
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from app.models import OrganizationReservation, UpdateStatus
+from app.models import UpdateStatus
+from app.utils.organization_reservation import OrganizationReservationHelper
 
 
 class Command(BaseCommand):
@@ -38,9 +39,9 @@ class Command(BaseCommand):
         self.stdout.write(f'適用対象日: {target_date}')
 
         # 適用対象の予約更新を取得
-        reservations = OrganizationReservation.objects.filter(
-            scheduled_date__lte=target_date, status_id=UpdateStatus.PENDING
-        ).select_related('organization', 'parent').order_by('scheduled_date', 'created_at')
+        reservations = OrganizationReservationHelper.get_pending_reservations(
+            scheduled_date=target_date
+        )
 
         if not reservations.exists():
             self.stdout.write(self.style.WARNING('適用対象の予約更新がありません'))
@@ -52,10 +53,11 @@ class Command(BaseCommand):
         if options['dry_run']:
             self.stdout.write(self.style.WARNING('--- Dry-run モード ---'))
             for reservation in reservations:
+                formatted = OrganizationReservationHelper.format_for_display(reservation)
                 self.stdout.write(
-                    f'  - [{reservation.get_action_display()}] '
-                    f'{reservation.name or reservation.organization} '
-                    f'(予定日: {reservation.scheduled_date})'
+                    f'  - [{formatted["action_display"]}] '
+                    f'{formatted["name"] or formatted["organization"]} '
+                    f'(予定日: {formatted["scheduled_date"]})'
                 )
             return
 
@@ -66,20 +68,22 @@ class Command(BaseCommand):
         with transaction.atomic():
             for reservation in reservations:
                 try:
-                    reservation.apply()
+                    OrganizationReservationHelper.apply_reservation(reservation)
+                    formatted = OrganizationReservationHelper.format_for_display(reservation)
                     success_count += 1
                     self.stdout.write(
                         self.style.SUCCESS(
-                            f'✓ 適用完了: [{reservation.get_action_display()}] '
-                            f'{reservation.name or reservation.organization}'
+                            f'✓ 適用完了: [{formatted["action_display"]}] '
+                            f'{formatted["name"] or formatted["organization"]}'
                         )
                     )
                 except Exception as e:
                     error_count += 1
+                    formatted = OrganizationReservationHelper.format_for_display(reservation)
                     self.stdout.write(
                         self.style.ERROR(
-                            f'✗ 適用失敗: [{reservation.get_action_display()}] '
-                            f'{reservation.name or reservation.organization} - {str(e)}'
+                            f'✗ 適用失敗: [{formatted["action_display"]}] '
+                            f'{formatted["name"] or formatted["organization"]} - {str(e)}'
                         )
                     )
 

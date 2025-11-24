@@ -41,18 +41,32 @@
                     {% elif reservation.action == 'update' %}bg-primary
                     {% elif reservation.action == 'delete' %}bg-danger
                     {% endif %}">
-                    {{ reservation.get_action_display }}
+                    {{ reservation.display_action }}
                   </span>
                 </td>
-                <td>{{ reservation.organization.name|default:"—" }}</td>
-                <td>{{ reservation.name|default:"—" }}</td>
-                <td>{{ reservation.parent.name|default:"—" }}</td>
+                <td>
+                  {% if reservation.display_organization %}
+                    {{ reservation.display_organization.name }}
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+                <td>{{ reservation.display_name|default:"—" }}</td>
+                <td>
+                  {% if reservation.display_parent %}
+                    {{ reservation.display_parent.name }}
+                  {% elif reservation.depends_on %}
+                    <span class="badge bg-info">未来: {{ reservation.depends_on.data.name }}</span>
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
                 <td>{{ reservation.scheduled_date|date:"Y年m月d日" }}</td>
                 <td>
                   <span class="badge
-                    {% if reservation.status_id == 'pending' %}bg-warning
-                    {% elif reservation.status_id == 'applied' %}bg-success
-                    {% elif reservation.status_id == 'cancelled' %}bg-secondary
+                    {% if reservation.status.code == 'pending' %}bg-warning text-dark
+                    {% elif reservation.status.code == 'applied' %}bg-success
+                    {% elif reservation.status.code == 'cancelled' %}bg-secondary
                     {% endif %}">
                     {{ reservation.status.name }}
                   </span>
@@ -60,9 +74,9 @@
                 <td>{{ reservation.created_at|date:"Y年m月d日 H:i" }}</td>
                 {% if user.is_authenticated %}
                   <td>
-                    {% if reservation.status_id == 'pending' %}
-                      <a href="{% url 'app:organization_reservation_update' reservation.pk %}" class="btn btn-sm btn-outline-primary">編集</a>
-                      <a href="{% url 'app:organization_reservation_delete' reservation.pk %}" class="btn btn-sm btn-outline-danger">キャンセル</a>
+                    {% if reservation.status.code == 'pending' %}
+                      <a href="{% url 'app:organization_reservation_update' reservation.id %}" class="btn btn-sm btn-outline-primary">編集</a>
+                      <a href="{% url 'app:organization_reservation_delete' reservation.id %}" class="btn btn-sm btn-outline-danger">キャンセル</a>
                     {% else %}
                       —
                     {% endif %}
