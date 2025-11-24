@@ -25,6 +25,32 @@ urlpatterns = [
         views.EmployeeDeleteView.as_view(),
         name='employee_delete',
     ),
+    # 社員予約更新関連
+    path(
+        'employees/reservations/',
+        views.EmployeeReservationListView.as_view(),
+        name='employee_reservation_list',
+    ),
+    path(
+        'employees/reservations/new/',
+        views.EmployeeReservationCreateView.as_view(),
+        name='employee_reservation_create',
+    ),
+    path(
+        'employees/reservations/<uuid:pk>/edit/',
+        views.EmployeeReservationUpdateView.as_view(),
+        name='employee_reservation_update',
+    ),
+    path(
+        'employees/reservations/<uuid:pk>/delete/',
+        views.EmployeeReservationDeleteView.as_view(),
+        name='employee_reservation_delete',
+    ),
+    path(
+        'employees/preview/',
+        views.EmployeePreviewView.as_view(),
+        name='employee_preview',
+    ),
     # 組織関連
     path(
         'organizations/',

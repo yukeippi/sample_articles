@@ -11,6 +11,11 @@ from app.views.employee import (
     EmployeeCreateView,
     EmployeeDeleteView,
     EmployeeListView,
+    EmployeePreviewView,
+    EmployeeReservationCreateView,
+    EmployeeReservationDeleteView,
+    EmployeeReservationListView,
+    EmployeeReservationUpdateView,
     EmployeeUpdateView,
 )
 from app.views.organization import (
@@ -42,6 +47,11 @@ __all__ = [
     'EmployeeCreateView',
     'EmployeeUpdateView',
     'EmployeeDeleteView',
+    'EmployeeReservationListView',
+    'EmployeeReservationCreateView',
+    'EmployeeReservationUpdateView',
+    'EmployeeReservationDeleteView',
+    'EmployeePreviewView',
     # Organization views
     'OrganizationListView',
     'OrganizationCreateView',

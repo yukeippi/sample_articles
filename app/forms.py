@@ -207,3 +207,66 @@ class OrganizationMergeForm(forms.Form):
                 raise forms.ValidationError('統合元の子孫組織を統合先に指定することはできません。')
 
         return cleaned_data
+
+
+class EmployeeReservationForm(forms.Form):
+    """社員予約更新フォーム"""
+
+    ACTION_CHOICES = [
+        ('create', '新規作成'),
+        ('update', '更新'),
+        ('delete', '削除'),
+    ]
+
+    employee = forms.ModelChoiceField(
+        queryset=Employee.objects.all(),
+        required=False,
+        label='対象社員',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    action = forms.ChoiceField(
+        choices=ACTION_CHOICES,
+        label='操作種別',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    name = forms.CharField(
+        max_length=200,
+        required=False,
+        label='氏名',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': '氏名を入力'}),
+    )
+    email = forms.EmailField(
+        required=False,
+        label='メールアドレス',
+        widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'メールアドレスを入力'}),
+    )
+    organization = forms.ModelChoiceField(
+        queryset=Organization.objects.all(),
+        required=False,
+        label='所属組織',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    scheduled_date = forms.DateField(
+        label='適用予定日',
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        action = cleaned_data.get('action')
+        employee = cleaned_data.get('employee')
+        name = cleaned_data.get('name')
+        email = cleaned_data.get('email')
+
+        if action == 'create':
+            if not name:
+                raise forms.ValidationError('新規作成の場合、氏名は必須です。')
+            if not email:
+                raise forms.ValidationError('新規作成の場合、メールアドレスは必須です。')
+            if employee:
+                raise forms.ValidationError('新規作成の場合、対象社員は指定できません。')
+        elif action in ['update', 'delete']:
+            if not employee:
+                raise forms.ValidationError('更新/削除の場合、対象社員は必須です。')
+
+        return cleaned_data

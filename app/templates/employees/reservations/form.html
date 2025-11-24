@@ -1,0 +1,45 @@
+{% extends 'base/base.html' %}
+
+{% block title %}{% if object %}予約更新の編集{% else %}予約更新の作成{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <div class="row">
+    <div class="col-md-8 offset-md-2">
+      <h1 class="mb-4">{% if object %}予約更新の編集{% else %}予約更新の作成{% endif %}</h1>
+
+      <div class="card">
+        <div class="card-body">
+          <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+              <div class="alert alert-danger" role="alert">
+                {{ form.non_field_errors }}
+              </div>
+            {% endif %}
+
+            <div class="alert alert-info" role="alert">
+              <strong>操作種別の説明:</strong>
+              <ul class="mb-0 mt-2">
+                <li><strong>新規作成:</strong> 氏名、メールアドレス、所属組織を指定してください。対象社員は指定不要です。</li>
+                <li><strong>更新:</strong> 対象社員を選択し、変更する項目を入力してください。</li>
+                <li><strong>削除:</strong> 対象社員を選択してください。</li>
+              </ul>
+            </div>
+
+            {% for field in form %}
+              {% include "forms/_field.html" %}
+            {% endfor %}
+
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <a href="{% url 'app:employee_reservation_list' %}" class="btn btn-secondary">キャンセル</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
