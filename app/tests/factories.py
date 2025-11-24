@@ -7,7 +7,7 @@ from django.contrib.auth.models import User
 from faker import Faker
 from model_bakery import baker
 
-from app.models import Article, Comment
+from app.models import Article, Comment, Employee, Organization
 
 fake = Faker('ja_JP')
 
@@ -90,3 +90,64 @@ def create_article_with_comments(num_comments=3):
     article = ArticleFactory.create()
     CommentFactory.create_batch(size=num_comments, article=article)
     return article
+
+
+class OrganizationFactory:
+    """組織ファクトリ"""
+
+    @staticmethod
+    def create(parent=None, **kwargs):
+        """組織を作成"""
+        defaults = {
+            'name': fake.company(),
+            'parent': parent,
+        }
+        defaults.update(kwargs)
+        return baker.make(Organization, **defaults)
+
+    @staticmethod
+    def create_batch(size=5, parent=None, **kwargs):
+        """複数の組織を作成"""
+        return [OrganizationFactory.create(parent=parent, **kwargs) for _ in range(size)]
+
+
+class EmployeeFactory:
+    """社員ファクトリ"""
+
+    @staticmethod
+    def create(organization=None, **kwargs):
+        """社員を作成"""
+        defaults = {
+            'name': fake.name(),
+            'email': fake.email(),
+            'organization': organization,
+        }
+        defaults.update(kwargs)
+        return baker.make(Employee, **defaults)
+
+    @staticmethod
+    def create_batch(size=5, organization=None, **kwargs):
+        """複数の社員を作成"""
+        return [EmployeeFactory.create(organization=organization, **kwargs) for _ in range(size)]
+
+
+def create_organization_hierarchy():
+    """組織階層を作成（親組織→子組織→孫組織）"""
+    parent = OrganizationFactory.create(name='本社')
+    child1 = OrganizationFactory.create(name='営業部', parent=parent)
+    child2 = OrganizationFactory.create(name='開発部', parent=parent)
+    grandchild1 = OrganizationFactory.create(name='営業一課', parent=child1)
+    grandchild2 = OrganizationFactory.create(name='営業二課', parent=child1)
+
+    return {
+        'parent': parent,
+        'children': [child1, child2],
+        'grandchildren': [grandchild1, grandchild2],
+    }
+
+
+def create_organization_with_employees(num_employees=3):
+    """社員付きの組織を作成"""
+    organization = OrganizationFactory.create()
+    employees = EmployeeFactory.create_batch(size=num_employees, organization=organization)
+    return organization, employees
