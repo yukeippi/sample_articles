@@ -57,8 +57,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -U pip
-          pip install -e .
-          pip install -r requirements-dev.txt
+          pip install .
 
       - name: Install Playwright browsers
         run: |
