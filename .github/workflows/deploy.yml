@@ -58,7 +58,7 @@ jobs:
         run: |
           pip install -U pip
           pip install .
-          pip install faker model-bakery playwright pytest pytest-django pytest-playwright ruff
+          pip install faker model-bakery playwright pytest pytest-cov pytest-django pytest-playwright ruff
 
       - name: Install Playwright browsers
         run: |
