@@ -131,3 +131,82 @@ class Reservation(TimestampedModel):
             return str(self.content_object)
         else:
             return f"ID: {self.object_id}"
+
+    def check_circular_dependency(self):
+        """循環参照チェック
+
+        Returns:
+            bool: 循環参照がない場合True、ある場合False
+
+        Raises:
+            ValueError: 循環参照が検出された場合
+        """
+        visited = set()
+        current = self.depends_on
+
+        while current:
+            if current.id in visited:
+                # 循環参照を検出
+                raise ValueError(
+                    f'循環参照が検出されました: {self.id} -> ... -> {current.id}'
+                )
+            visited.add(current.id)
+            current = current.depends_on
+
+        return True
+
+    @staticmethod
+    def topological_sort(reservations):
+        """トポロジカルソートで予約更新の適用順序を決定
+
+        Args:
+            reservations: QuerySetまたは予約更新のリスト
+
+        Returns:
+            list: 適用順序に並び替えられた予約更新のリスト
+
+        Raises:
+            ValueError: 循環参照が検出された場合
+        """
+        # 予約更新をリストに変換
+        reservation_list = list(reservations)
+
+        # IDでインデックス化
+        reservation_dict = {r.id: r for r in reservation_list}
+
+        # 依存グラフを構築（被依存 -> 依存のマッピング）
+        dependents = {r.id: [] for r in reservation_list}
+        in_degree = {r.id: 0 for r in reservation_list}
+
+        for reservation in reservation_list:
+            if reservation.depends_on and reservation.depends_on.id in reservation_dict:
+                # depends_on -> reservation の依存関係
+                dependents[reservation.depends_on.id].append(reservation.id)
+                in_degree[reservation.id] += 1
+
+        # Kahn's algorithm でトポロジカルソート
+        queue = [r.id for r in reservation_list if in_degree[r.id] == 0]
+        sorted_ids = []
+
+        while queue:
+            # 予定日が早い順、作成日時が早い順にソート
+            queue.sort(key=lambda rid: (
+                reservation_dict[rid].scheduled_date,
+                reservation_dict[rid].created_at
+            ))
+
+            current_id = queue.pop(0)
+            sorted_ids.append(current_id)
+
+            # 依存している予約更新の入次数を減らす
+            for dependent_id in dependents[current_id]:
+                in_degree[dependent_id] -= 1
+                if in_degree[dependent_id] == 0:
+                    queue.append(dependent_id)
+
+        # 全ての予約更新がソートされたか確認（循環参照チェック）
+        if len(sorted_ids) != len(reservation_list):
+            raise ValueError('循環参照が検出されました。依存関係を確認してください。')
+
+        # ソート順に予約更新オブジェクトを並べて返す
+        return [reservation_dict[rid] for rid in sorted_ids]

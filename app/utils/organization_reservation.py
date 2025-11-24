@@ -18,6 +18,36 @@ class OrganizationReservationHelper:
         return ContentType.objects.get_for_model(Organization)
 
     @staticmethod
+    def validate_hierarchy(organization_id, parent_id):
+        """組織階層の妥当性を検証
+
+        Args:
+            organization_id: 対象組織のID（新規作成の場合はNone）
+            parent_id: 親組織のID
+
+        Raises:
+            ValueError: 階層が不正な場合
+        """
+        if not parent_id:
+            return  # 親なし（ルート組織）は常に有効
+
+        if organization_id and str(organization_id) == str(parent_id):
+            raise ValueError('組織は自分自身を親にできません')
+
+        # 親組織が存在し、その子孫に対象組織が含まれていないか確認
+        if organization_id:
+            try:
+                org = Organization.objects.get(id=organization_id)
+                parent = Organization.objects.get(id=parent_id)
+
+                # 親組織の先祖に対象組織が含まれていないか確認
+                ancestors = parent.get_ancestors()
+                if org in ancestors:
+                    raise ValueError('循環参照になる親組織は指定できません')
+            except Organization.DoesNotExist:
+                pass  # 新規作成の場合はチェック不要
+
+    @staticmethod
     def create_reservation(action, scheduled_date, organization=None, name=None, parent=None, parent_reservation=None):
         """組織の予約更新を作成
 
@@ -28,8 +58,18 @@ class OrganizationReservationHelper:
             name: 組織名（新規作成/更新の場合）
             parent: 親組織（既存の組織）
             parent_reservation: 親組織（未来の予約更新）
+
+        Raises:
+            ValueError: 階層が不正な場合、または循環参照が検出された場合
         """
         content_type = OrganizationReservationHelper.get_content_type()
+
+        # 階層検証（既存の親組織が指定されている場合）
+        if parent:
+            OrganizationReservationHelper.validate_hierarchy(
+                organization_id=organization.id if organization else None,
+                parent_id=parent.id
+            )
 
         data = {}
         if name:
@@ -43,7 +83,7 @@ class OrganizationReservationHelper:
         # parent_reservationが指定されている場合は、depends_onに設定
         depends_on = parent_reservation if parent_reservation else None
 
-        return Reservation.objects.create(
+        reservation = Reservation.objects.create(
             content_type=content_type,
             object_id=organization.id if organization else None,
             action=action,
@@ -52,6 +92,16 @@ class OrganizationReservationHelper:
             depends_on=depends_on,
             status_id=UpdateStatus.PENDING,
         )
+
+        # 循環参照チェック
+        try:
+            reservation.check_circular_dependency()
+        except ValueError as e:
+            # 循環参照が検出された場合は作成した予約を削除
+            reservation.delete()
+            raise e
+
+        return reservation
 
     @staticmethod
     def apply_reservation(reservation):

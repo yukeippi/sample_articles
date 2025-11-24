@@ -3,7 +3,7 @@ from datetime import date
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from app.models import UpdateStatus
+from app.models import Reservation, UpdateStatus
 from app.utils.organization_reservation import OrganizationReservationHelper
 
 
@@ -49,15 +49,26 @@ class Command(BaseCommand):
 
         self.stdout.write(f'適用対象: {reservations.count()}件')
 
+        # トポロジカルソートで適用順序を決定
+        try:
+            sorted_reservations = Reservation.topological_sort(reservations)
+            self.stdout.write(self.style.SUCCESS('依存関係を解決しました'))
+        except ValueError as e:
+            self.stdout.write(self.style.ERROR(f'エラー: {str(e)}'))
+            return
+
         # Dry-runモード
         if options['dry_run']:
             self.stdout.write(self.style.WARNING('--- Dry-run モード ---'))
-            for reservation in reservations:
+            for idx, reservation in enumerate(sorted_reservations, 1):
                 formatted = OrganizationReservationHelper.format_for_display(reservation)
+                depends_info = ''
+                if reservation.depends_on:
+                    depends_info = f' (依存: {reservation.depends_on.data.get("name", "不明")})'
                 self.stdout.write(
-                    f'  - [{formatted["action_display"]}] '
+                    f'  {idx}. [{formatted["action_display"]}] '
                     f'{formatted["name"] or formatted["organization"]} '
-                    f'(予定日: {formatted["scheduled_date"]})'
+                    f'(予定日: {formatted["scheduled_date"]}){depends_info}'
                 )
             return
 
@@ -66,14 +77,14 @@ class Command(BaseCommand):
         error_count = 0
 
         with transaction.atomic():
-            for reservation in reservations:
+            for idx, reservation in enumerate(sorted_reservations, 1):
                 try:
                     OrganizationReservationHelper.apply_reservation(reservation)
                     formatted = OrganizationReservationHelper.format_for_display(reservation)
                     success_count += 1
                     self.stdout.write(
                         self.style.SUCCESS(
-                            f'✓ 適用完了: [{formatted["action_display"]}] '
+                            f'✓ [{idx}/{len(sorted_reservations)}] 適用完了: [{formatted["action_display"]}] '
                             f'{formatted["name"] or formatted["organization"]}'
                         )
                     )
@@ -82,10 +93,12 @@ class Command(BaseCommand):
                     formatted = OrganizationReservationHelper.format_for_display(reservation)
                     self.stdout.write(
                         self.style.ERROR(
-                            f'✗ 適用失敗: [{formatted["action_display"]}] '
+                            f'✗ [{idx}/{len(sorted_reservations)}] 適用失敗: [{formatted["action_display"]}] '
                             f'{formatted["name"] or formatted["organization"]} - {str(e)}'
                         )
                     )
+                    # エラーが発生した場合はロールバックのため処理を中断
+                    raise
 
         self.stdout.write(
             self.style.SUCCESS(f'\n処理完了: 成功 {success_count}件 / 失敗 {error_count}件')
