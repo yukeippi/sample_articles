@@ -1,0 +1,54 @@
+{% extends 'base/base.html' %}
+
+{% block title %}組織の統合{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <div class="row">
+    <div class="col-md-8 offset-md-2">
+      <h1 class="mb-4">組織の統合</h1>
+
+      <div class="alert alert-info" role="alert">
+        <h5 class="alert-heading">統合について</h5>
+        <p>統合元組織の社員と子組織が統合先組織に移動され、統合元組織は削除されます。</p>
+        <ul>
+          <li>統合元組織に所属する社員は、統合先組織の所属になります</li>
+          <li>統合元組織の子組織は、統合先組織の子組織になります</li>
+          <li>統合元組織は論理削除されます</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <form method="post">
+            {% csrf_token %}
+
+            {% if messages %}
+              {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}" role="alert">
+                  {{ message }}
+                </div>
+              {% endfor %}
+            {% endif %}
+
+            {% if form.non_field_errors %}
+              <div class="alert alert-danger" role="alert">
+                {{ form.non_field_errors }}
+              </div>
+            {% endif %}
+
+            {% for field in form %}
+              {% include "forms/_field.html" %}
+            {% endfor %}
+
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-danger">統合を実行</button>
+              <a href="{% url 'app:organization_list' %}" class="btn btn-secondary">キャンセル</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

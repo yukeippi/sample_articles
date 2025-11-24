@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from app import views
 
 app_name = 'app'
 
@@ -12,4 +12,95 @@ urlpatterns = [
     path('article/<uuid:pk>/', views.ArticleDetailView.as_view(), name='article_detail'),
     path('article/<uuid:pk>/edit/', views.ArticleUpdateView.as_view(), name='article_edit'),
     path('article/<uuid:pk>/delete/', views.ArticleDeleteView.as_view(), name='article_delete'),
+    # 社員関連
+    path('employees/', views.EmployeeListView.as_view(), name='employee_list'),
+    path('employees/new/', views.EmployeeCreateView.as_view(), name='employee_create'),
+    path(
+        'employees/<uuid:pk>/edit/',
+        views.EmployeeUpdateView.as_view(),
+        name='employee_update',
+    ),
+    path(
+        'employees/<uuid:pk>/delete/',
+        views.EmployeeDeleteView.as_view(),
+        name='employee_delete',
+    ),
+    # 社員予約更新関連
+    path(
+        'employees/reservations/',
+        views.EmployeeReservationListView.as_view(),
+        name='employee_reservation_list',
+    ),
+    path(
+        'employees/reservations/new/',
+        views.EmployeeReservationCreateView.as_view(),
+        name='employee_reservation_create',
+    ),
+    path(
+        'employees/reservations/<uuid:pk>/edit/',
+        views.EmployeeReservationUpdateView.as_view(),
+        name='employee_reservation_update',
+    ),
+    path(
+        'employees/reservations/<uuid:pk>/delete/',
+        views.EmployeeReservationDeleteView.as_view(),
+        name='employee_reservation_delete',
+    ),
+    path(
+        'employees/preview/',
+        views.EmployeePreviewView.as_view(),
+        name='employee_preview',
+    ),
+    # 組織関連
+    path(
+        'organizations/',
+        views.OrganizationListView.as_view(),
+        name='organization_list',
+    ),
+    path(
+        'organizations/new/',
+        views.OrganizationCreateView.as_view(),
+        name='organization_create',
+    ),
+    path(
+        'organizations/<uuid:pk>/edit/',
+        views.OrganizationUpdateView.as_view(),
+        name='organization_update',
+    ),
+    path(
+        'organizations/<uuid:pk>/delete/',
+        views.OrganizationDeleteView.as_view(),
+        name='organization_delete',
+    ),
+    path(
+        'organizations/merge/',
+        views.OrganizationMergeView.as_view(),
+        name='organization_merge',
+    ),
+    path(
+        'organizations/preview/',
+        views.OrganizationPreviewView.as_view(),
+        name='organization_preview',
+    ),
+    # 予約更新関連
+    path(
+        'organizations/reservations/',
+        views.OrganizationReservationListView.as_view(),
+        name='organization_reservation_list',
+    ),
+    path(
+        'organizations/reservations/new/',
+        views.OrganizationReservationCreateView.as_view(),
+        name='organization_reservation_create',
+    ),
+    path(
+        'organizations/reservations/<uuid:pk>/edit/',
+        views.OrganizationReservationUpdateView.as_view(),
+        name='organization_reservation_update',
+    ),
+    path(
+        'organizations/reservations/<uuid:pk>/delete/',
+        views.OrganizationReservationDeleteView.as_view(),
+        name='organization_reservation_delete',
+    ),
 ]
