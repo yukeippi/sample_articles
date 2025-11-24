@@ -2,10 +2,10 @@ from uuid import uuid7
 
 from django.db import models
 
-from .base import TimestampedModel
+from .base import TimestampedModel, SoftDeleteModel
 
 
-class Organization(TimestampedModel):
+class Organization(TimestampedModel, SoftDeleteModel):
     """組織マスターモデル（隣接リストモデル）"""
 
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, verbose_name='ID')
