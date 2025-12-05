@@ -17,6 +17,9 @@ SECRET_KEY = env('DJANGO_SECRET_KEY', default=get_random_secret_key())
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
 
+# データベース設定を上書き（.env.devのDATABASE_URLを使用）
+DATABASES = {'default': env.db(default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')}
+
 # 開発環境でのログ設定
 LOGGING = {
     'version': 1,
