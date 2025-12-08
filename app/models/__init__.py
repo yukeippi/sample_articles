@@ -3,7 +3,7 @@ from .base import TimestampedModel
 from .comment import Comment
 from .department import Department
 from .employee import Employee
-from .reservation import Reservation, UpdateStatus
+from .reservation import Reservation
 
 __all__ = [
     'Article',
@@ -12,5 +12,4 @@ __all__ = [
     'Employee',
     'Reservation',
     'TimestampedModel',
-    'UpdateStatus',
 ]

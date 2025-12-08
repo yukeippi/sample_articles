@@ -7,30 +7,6 @@ from django.db import models
 from .base import TimestampedModel
 
 
-class UpdateStatus(models.Model):
-    """更新ステータスマスター"""
-
-    PENDING = 'pending'  # 予約中
-    APPLIED = 'applied'  # 適用済み
-    CANCELLED = 'cancelled'  # キャンセル済み
-
-    STATUS_CHOICES = [
-        (PENDING, '予約中'),
-        (APPLIED, '適用済み'),
-        (CANCELLED, 'キャンセル済み'),
-    ]
-
-    code = models.CharField(max_length=20, primary_key=True, verbose_name='ステータスコード')
-    name = models.CharField(max_length=50, verbose_name='ステータス名')
-
-    class Meta:
-        verbose_name = '更新ステータス'
-        verbose_name_plural = '更新ステータス'
-
-    def __str__(self):
-        return self.name
-
-
 class Reservation(TimestampedModel):
     """汎用予約更新データ"""
 
@@ -44,6 +20,16 @@ class Reservation(TimestampedModel):
         (ACTION_UPDATE, '更新'),
         (ACTION_DELETE, '削除'),
         (ACTION_MERGE, '統合'),
+    ]
+
+    PENDING = 'pending'  # 予約中
+    APPLIED = 'applied'  # 適用済み
+    CANCELLED = 'cancelled'  # キャンセル済み
+
+    STATUS_CHOICES = [
+        (PENDING, '予約中'),
+        (APPLIED, '適用済み'),
+        (CANCELLED, 'キャンセル済み'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, verbose_name='ID')
@@ -90,10 +76,10 @@ class Reservation(TimestampedModel):
     scheduled_date = models.DateField(verbose_name='適用予定日')
 
     # ステータス
-    status = models.ForeignKey(
-        UpdateStatus,
-        on_delete=models.PROTECT,
-        default=UpdateStatus.PENDING,
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=PENDING,
         verbose_name='ステータス',
     )
 

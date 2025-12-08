@@ -7,7 +7,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.utils import timezone
 
-from app.models import Department, Reservation, UpdateStatus
+from app.models import Department, Reservation
 
 
 class DepartmentReservationHelper:
@@ -107,7 +107,7 @@ class DepartmentReservationHelper:
             data=data,
             scheduled_date=scheduled_date,
             depends_on=depends_on,
-            status_id=UpdateStatus.PENDING,
+            status=Reservation.PENDING,
         )
 
         # 循環参照チェック
@@ -130,7 +130,7 @@ class DepartmentReservationHelper:
         Returns:
             適用後のDepartmentオブジェクト
         """
-        if reservation.status_id != UpdateStatus.PENDING:
+        if reservation.status != Reservation.PENDING:
             raise ValueError('適用できるのは予約中のレコードのみです')
 
         if reservation.content_type != DepartmentReservationHelper.get_content_type():
@@ -203,7 +203,7 @@ class DepartmentReservationHelper:
                 dept = None  # 統合後は統合元組織は削除される
 
             # ステータスを適用済みに変更
-            reservation.status_id = UpdateStatus.APPLIED
+            reservation.status = Reservation.APPLIED
             reservation.applied_at = timezone.now()
             reservation.save()
 
@@ -223,7 +223,7 @@ class DepartmentReservationHelper:
         content_type = DepartmentReservationHelper.get_content_type()
         queryset = Reservation.objects.filter(
             content_type=content_type,
-            status_id=UpdateStatus.PENDING,
+            status=Reservation.PENDING,
         )
 
         if scheduled_date:

@@ -8,7 +8,7 @@ from django.views import View
 from django.views.generic import CreateView, DeleteView, UpdateView
 
 from app.forms import EmployeeForm, EmployeeReservationForm
-from app.models import Employee, Reservation, UpdateStatus
+from app.models import Employee, Reservation
 from app.utils.employee_reservation import EmployeeReservationHelper
 
 
@@ -56,10 +56,8 @@ class EmployeeReservationListView(LoginRequiredMixin, View):
     def get(self, request):
         # 全ステータスの予約を取得(pending以外も表示)
         content_type = EmployeeReservationHelper.get_content_type()
-        reservations = (
-            Reservation.objects.filter(content_type=content_type)
-            .select_related('status')
-            .order_by('-scheduled_date', '-created_at')
+        reservations = Reservation.objects.filter(content_type=content_type).order_by(
+            '-scheduled_date', '-created_at'
         )
 
         # 各予約に表示用の情報を追加
@@ -107,7 +105,7 @@ class EmployeeReservationUpdateView(LoginRequiredMixin, View):
     """社員予約更新編集ビュー"""
 
     def get(self, request, pk):
-        reservation = Reservation.objects.get(pk=pk, status_id=UpdateStatus.PENDING)
+        reservation = Reservation.objects.get(pk=pk, status=Reservation.PENDING)
         formatted = EmployeeReservationHelper.format_for_display(reservation)
 
         # フォームの初期値を設定
@@ -131,7 +129,7 @@ class EmployeeReservationUpdateView(LoginRequiredMixin, View):
         )
 
     def post(self, request, pk):
-        reservation = Reservation.objects.get(pk=pk, status_id=UpdateStatus.PENDING)
+        reservation = Reservation.objects.get(pk=pk, status=Reservation.PENDING)
         form = EmployeeReservationForm(request.POST)
         if form.is_valid():
             # 予約更新を更新
@@ -174,11 +172,11 @@ class EmployeeReservationDeleteView(LoginRequiredMixin, DeleteView):
     def get_queryset(self):
         # 予約中のレコードのみ削除可能
         content_type = EmployeeReservationHelper.get_content_type()
-        return Reservation.objects.filter(content_type=content_type, status_id=UpdateStatus.PENDING)
+        return Reservation.objects.filter(content_type=content_type, status=Reservation.PENDING)
 
     def form_valid(self, form):
         # 物理削除ではなくステータス変更
-        self.object.status_id = UpdateStatus.CANCELLED
+        self.object.status = Reservation.CANCELLED
         self.object.save()
         return redirect(self.success_url)
 

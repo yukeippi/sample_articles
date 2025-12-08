@@ -15,23 +15,7 @@
 
 ## テーブル構造
 
-### 1. UpdateStatus（更新ステータスマスター）
-
-| カラム名 | 型 | 制約 | 説明 |
-|---------|-----|------|------|
-| code | VARCHAR(20) | PRIMARY KEY | ステータスコード |
-| name | VARCHAR(50) | NOT NULL | ステータス名 |
-
-**データ例:**
-```
-code      | name
-----------|------------
-pending   | 予約中
-applied   | 適用済み
-cancelled | キャンセル済み
-```
-
-### 2. Reservation（汎用予約更新）
+### Reservation（汎用予約更新）
 
 | カラム名 | 型 | 制約 | 説明 |
 |---------|-----|------|------|
@@ -42,14 +26,14 @@ cancelled | キャンセル済み
 | data | JSONB | NOT NULL | 更新データ（モデル固有の情報） |
 | depends_on_id | UUID | FOREIGN KEY (self) NULL | 依存する予約更新ID（親として使用） |
 | scheduled_date | DATE | NOT NULL | 適用予定日 |
-| status_id | VARCHAR(20) | FOREIGN KEY | ステータス（デフォルト: pending） |
+| status | VARCHAR(20) | NOT NULL | ステータス（pending/applied/cancelled、デフォルト: pending） |
 | applied_at | TIMESTAMP | NULL | 適用日時 |
 | applied_object_id | UUID | NULL | 適用後に生成されたオブジェクトID |
 | created_at | TIMESTAMP | NOT NULL | 作成日時 |
 | updated_at | TIMESTAMP | NOT NULL | 更新日時 |
 
 **インデックス:**
-- `idx_reservation_scheduled_status`: (scheduled_date, status_id)
+- `idx_reservation_scheduled_status`: (scheduled_date, status)
 - `idx_reservation_content_object`: (content_type_id, object_id)
 - `idx_reservation_depends_on`: (depends_on_id)
 
@@ -74,7 +58,7 @@ cancelled | キャンセル済み
   },
   "depends_on_id": null,
   "scheduled_date": "2025-04-01",
-  "status_id": "pending",
+  "status": "pending",
   "applied_at": null,
   "applied_object_id": null,
   "created_at": "2025-01-15 10:00:00",
@@ -96,7 +80,7 @@ cancelled | キャンセル済み
   },
   "depends_on_id": "01234567-89ab-cdef-0123-456789abcdef",  // システム部の予約
   "scheduled_date": "2025-04-01",
-  "status_id": "pending",
+  "status": "pending",
   "applied_at": null,
   "applied_object_id": null,
   "created_at": "2025-01-15 10:05:00",
@@ -118,7 +102,7 @@ cancelled | キャンセル済み
   },
   "depends_on_id": null,
   "scheduled_date": "2025-05-01",
-  "status_id": "pending",
+  "status": "pending",
   "applied_at": null,
   "applied_object_id": null,
   "created_at": "2025-01-15 11:00:00",
@@ -167,7 +151,7 @@ class Reservation(TimestampedModel):
 
     # スケジュールとステータス
     scheduled_date = models.DateField(...)
-    status = models.ForeignKey(UpdateStatus, ...)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=PENDING, ...)
 
     # 適用結果
     applied_at = models.DateTimeField(null=True, blank=True, ...)
@@ -393,7 +377,7 @@ class EmployeeReservationHelper:
             action=action,
             data=data,
             scheduled_date=scheduled_date,
-            status_id=UpdateStatus.PENDING,
+            status=Reservation.PENDING,
         )
 
     @staticmethod
@@ -419,7 +403,7 @@ class EmployeeReservationHelper:
             employee = Employee.objects.get(id=reservation.object_id)
             employee.delete()
 
-        reservation.status_id = UpdateStatus.APPLIED
+        reservation.status = Reservation.APPLIED
         reservation.applied_at = timezone.now()
         reservation.save()
 
@@ -429,7 +413,7 @@ class EmployeeReservationHelper:
         content_type = EmployeeReservationHelper.get_content_type()
         queryset = Reservation.objects.filter(
             content_type=content_type,
-            status_id=UpdateStatus.PENDING,
+            status=Reservation.PENDING,
         )
         if scheduled_date:
             queryset = queryset.filter(scheduled_date__lte=scheduled_date)
@@ -631,7 +615,7 @@ EmployeeReservationHelper.create_reservation(
   },
   "depends_on_id": null,
   "scheduled_date": "2025-04-01",
-  "status_id": "pending",
+  "status": "pending",
   "applied_at": null,
   "applied_object_id": null
 }
@@ -650,7 +634,7 @@ EmployeeReservationHelper.create_reservation(
   },
   "depends_on_id": null,
   "scheduled_date": "2025-04-01",
-  "status_id": "pending",
+  "status": "pending",
   "applied_at": null,
   "applied_object_id": null
 }

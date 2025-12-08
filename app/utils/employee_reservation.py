@@ -7,7 +7,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.utils import timezone
 
-from app.models import Employee, Reservation, UpdateStatus
+from app.models import Employee, Reservation
 
 
 class EmployeeReservationHelper:
@@ -57,7 +57,7 @@ class EmployeeReservationHelper:
             action=action,
             data=data,
             scheduled_date=scheduled_date,
-            status_id=UpdateStatus.PENDING,
+            status=Reservation.PENDING,
         )
 
         return reservation
@@ -72,7 +72,7 @@ class EmployeeReservationHelper:
         Returns:
             適用後のEmployeeオブジェクト
         """
-        if reservation.status_id != UpdateStatus.PENDING:
+        if reservation.status != Reservation.PENDING:
             raise ValueError('適用できるのは予約中のレコードのみです')
 
         if reservation.content_type != EmployeeReservationHelper.get_content_type():
@@ -129,7 +129,7 @@ class EmployeeReservationHelper:
                 employee.delete()
 
             # ステータスを適用済みに変更
-            reservation.status_id = UpdateStatus.APPLIED
+            reservation.status = Reservation.APPLIED
             reservation.applied_at = timezone.now()
             reservation.save()
 
@@ -145,7 +145,7 @@ class EmployeeReservationHelper:
         content_type = EmployeeReservationHelper.get_content_type()
         queryset = Reservation.objects.filter(
             content_type=content_type,
-            status_id=UpdateStatus.PENDING,
+            status=Reservation.PENDING,
         )
 
         if scheduled_date:

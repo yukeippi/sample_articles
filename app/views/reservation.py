@@ -8,7 +8,7 @@ from django.views import View
 from django.views.generic import DeleteView
 
 from app.forms import DepartmentReservationForm
-from app.models import Department, Reservation, UpdateStatus
+from app.models import Department, Reservation
 from app.utils.department_reservation import DepartmentReservationHelper
 from app.utils.tree import build_tree, get_tree_html
 
@@ -21,7 +21,7 @@ class DepartmentReservationListView(LoginRequiredMixin, View):
         content_type = DepartmentReservationHelper.get_content_type()
         reservations = (
             Reservation.objects.filter(content_type=content_type)
-            .select_related('status', 'depends_on')
+            .select_related('depends_on')
             .order_by('-scheduled_date', '-created_at')
         )
 
@@ -71,7 +71,7 @@ class DepartmentReservationUpdateView(LoginRequiredMixin, View):
     """予約更新編集ビュー"""
 
     def get(self, request, pk):
-        reservation = Reservation.objects.get(pk=pk, status_id=UpdateStatus.PENDING)
+        reservation = Reservation.objects.get(pk=pk, status=Reservation.PENDING)
         formatted = DepartmentReservationHelper.format_for_display(reservation)
 
         # フォームの初期値を設定
@@ -96,7 +96,7 @@ class DepartmentReservationUpdateView(LoginRequiredMixin, View):
         )
 
     def post(self, request, pk):
-        reservation = Reservation.objects.get(pk=pk, status_id=UpdateStatus.PENDING)
+        reservation = Reservation.objects.get(pk=pk, status=Reservation.PENDING)
         form = DepartmentReservationForm(request.POST)
         if form.is_valid():
             # 予約更新を更新
@@ -142,11 +142,11 @@ class DepartmentReservationDeleteView(LoginRequiredMixin, DeleteView):
     def get_queryset(self):
         # 予約中のレコードのみ削除可能
         content_type = DepartmentReservationHelper.get_content_type()
-        return Reservation.objects.filter(content_type=content_type, status_id=UpdateStatus.PENDING)
+        return Reservation.objects.filter(content_type=content_type, status=Reservation.PENDING)
 
     def form_valid(self, form):
         # 物理削除ではなくステータス変更
-        self.object.status_id = UpdateStatus.CANCELLED
+        self.object.status = Reservation.CANCELLED
         self.object.save()
         return redirect(self.success_url)
 
