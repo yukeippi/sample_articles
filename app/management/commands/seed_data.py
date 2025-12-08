@@ -71,19 +71,21 @@ class Command(BaseCommand):
 
         # ルート組織を作成
         root_orgs_count = max(2, num_departments // 5)
-        for _ in range(root_orgs_count):
+        for i in range(root_orgs_count):
             dept = Department.objects.create(
                 name=fake.company(),
+                code=f'D{str(i + 1).zfill(6)}',  # D000001, D000002, ...
                 parent=None,
             )
             departments.append(dept)
 
         # 子組織を作成
         remaining_orgs = num_departments - root_orgs_count
-        for _ in range(remaining_orgs):
+        for i in range(remaining_orgs):
             parent_dept = fake.random_element(departments)
             dept = Department.objects.create(
                 name=f'{fake.company()} {fake.random_element(["部", "課", "チーム", "グループ"])}',
+                code=f'D{str(root_orgs_count + i + 1).zfill(6)}',  # 続きの番号
                 parent=parent_dept,
             )
             departments.append(dept)
@@ -106,7 +108,7 @@ class Command(BaseCommand):
         # サンプル社員を作成
         self.stdout.write(f'{num_employees}件の社員を作成しています...')
         employees = []
-        for _ in range(num_employees):
+        for i in range(num_employees):
             # 70%の確率で組織に所属、30%の確率で未所属
             department = (
                 fake.random_element(departments)
@@ -115,6 +117,7 @@ class Command(BaseCommand):
             )
             employee = Employee.objects.create(
                 name=fake.name(),
+                code=f'E{str(i + 1).zfill(6)}',  # E000001, E000002, ...
                 email=fake.email(),
                 department=department,
             )

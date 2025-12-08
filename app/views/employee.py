@@ -8,7 +8,7 @@ from django.views import View
 from django.views.generic import CreateView, DeleteView, UpdateView
 
 from app.forms import EmployeeForm, EmployeeReservationForm
-from app.models import Employee, Reservation
+from app.models import Employee, StagedChange
 from app.utils.employee_reservation import EmployeeReservationHelper
 
 
@@ -56,7 +56,7 @@ class EmployeeReservationListView(LoginRequiredMixin, View):
     def get(self, request):
         # 全ステータスの予約を取得(pending以外も表示)
         content_type = EmployeeReservationHelper.get_content_type()
-        reservations = Reservation.objects.filter(content_type=content_type).order_by(
+        reservations = StagedChange.objects.filter(content_type=content_type).order_by(
             '-scheduled_date', '-created_at'
         )
 
@@ -105,7 +105,7 @@ class EmployeeReservationUpdateView(LoginRequiredMixin, View):
     """社員予約更新編集ビュー"""
 
     def get(self, request, pk):
-        reservation = Reservation.objects.get(pk=pk, status=Reservation.PENDING)
+        reservation = StagedChange.objects.get(pk=pk, status=StagedChange.PENDING)
         formatted = EmployeeReservationHelper.format_for_display(reservation)
 
         # フォームの初期値を設定
@@ -129,7 +129,7 @@ class EmployeeReservationUpdateView(LoginRequiredMixin, View):
         )
 
     def post(self, request, pk):
-        reservation = Reservation.objects.get(pk=pk, status=Reservation.PENDING)
+        reservation = StagedChange.objects.get(pk=pk, status=StagedChange.PENDING)
         form = EmployeeReservationForm(request.POST)
         if form.is_valid():
             # 予約更新を更新
@@ -165,18 +165,18 @@ class EmployeeReservationUpdateView(LoginRequiredMixin, View):
 class EmployeeReservationDeleteView(LoginRequiredMixin, DeleteView):
     """社員予約更新削除（キャンセル）ビュー"""
 
-    model = Reservation
+    model = StagedChange
     template_name = 'employees/reservations/confirm_delete.html'
     success_url = reverse_lazy('app:employee_reservation_list')
 
     def get_queryset(self):
         # 予約中のレコードのみ削除可能
         content_type = EmployeeReservationHelper.get_content_type()
-        return Reservation.objects.filter(content_type=content_type, status=Reservation.PENDING)
+        return StagedChange.objects.filter(content_type=content_type, status=StagedChange.PENDING)
 
     def form_valid(self, form):
         # 物理削除ではなくステータス変更
-        self.object.status = Reservation.CANCELLED
+        self.object.status = StagedChange.CANCELLED
         self.object.save()
         return redirect(self.success_url)
 
@@ -212,7 +212,7 @@ class EmployeePreviewView(LoginRequiredMixin, View):
         for reservation in reservations:
             formatted = EmployeeReservationHelper.format_for_display(reservation)
 
-            if reservation.action == Reservation.ACTION_CREATE:
+            if reservation.action == StagedChange.ACTION_CREATE:
                 # 新規作成
                 new_id = str(reservation.id)  # 仮のID
                 employee_dict[new_id] = {
@@ -227,7 +227,7 @@ class EmployeePreviewView(LoginRequiredMixin, View):
                     else None,
                     'is_preview': True,  # プレビューフラグ
                 }
-            elif reservation.action == Reservation.ACTION_UPDATE:
+            elif reservation.action == StagedChange.ACTION_UPDATE:
                 # 更新
                 emp_id = str(reservation.object_id)
                 if emp_id in employee_dict:
@@ -241,7 +241,7 @@ class EmployeePreviewView(LoginRequiredMixin, View):
                     elif 'department' in reservation.data:
                         employee_dict[emp_id]['department_id'] = None
                         employee_dict[emp_id]['department_name'] = None
-            elif reservation.action == Reservation.ACTION_DELETE:
+            elif reservation.action == StagedChange.ACTION_DELETE:
                 # 削除
                 emp_id = str(reservation.object_id)
                 employee_dict.pop(emp_id, None)

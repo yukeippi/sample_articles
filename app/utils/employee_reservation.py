@@ -7,7 +7,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.utils import timezone
 
-from app.models import Employee, Reservation
+from app.models import Employee, StagedChange
 
 
 class EmployeeReservationHelper:
@@ -45,19 +45,19 @@ class EmployeeReservationHelper:
         if department:
             data['department_id'] = str(department.id)
         elif department is None and action in [
-            Reservation.ACTION_CREATE,
-            Reservation.ACTION_UPDATE,
+            StagedChange.ACTION_CREATE,
+            StagedChange.ACTION_UPDATE,
         ]:
             # 組織をNullに設定する場合
             data['department_id'] = None
 
-        reservation = Reservation.objects.create(
+        reservation = StagedChange.objects.create(
             content_type=content_type,
             object_id=employee.id if employee else None,
             action=action,
             data=data,
             scheduled_date=scheduled_date,
-            status=Reservation.PENDING,
+            status=StagedChange.PENDING,
         )
 
         return reservation
@@ -72,14 +72,14 @@ class EmployeeReservationHelper:
         Returns:
             適用後のEmployeeオブジェクト
         """
-        if reservation.status != Reservation.PENDING:
+        if reservation.status != StagedChange.PENDING:
             raise ValueError('適用できるのは予約中のレコードのみです')
 
         if reservation.content_type != EmployeeReservationHelper.get_content_type():
             raise ValueError('社員以外の予約更新は適用できません')
 
         with transaction.atomic():
-            if reservation.action == Reservation.ACTION_CREATE:
+            if reservation.action == StagedChange.ACTION_CREATE:
                 # 新規作成
                 department_id = reservation.data.get('department_id')
                 department = None
@@ -96,7 +96,7 @@ class EmployeeReservationHelper:
                 )
                 reservation.applied_object_id = employee.id
 
-            elif reservation.action == Reservation.ACTION_UPDATE:
+            elif reservation.action == StagedChange.ACTION_UPDATE:
                 # 更新
                 if not reservation.object_id:
                     raise ValueError('更新対象の社員が指定されていません')
@@ -120,7 +120,7 @@ class EmployeeReservationHelper:
 
                 employee.save()
 
-            elif reservation.action == Reservation.ACTION_DELETE:
+            elif reservation.action == StagedChange.ACTION_DELETE:
                 # 削除
                 if not reservation.object_id:
                     raise ValueError('削除対象の社員が指定されていません')
@@ -129,11 +129,11 @@ class EmployeeReservationHelper:
                 employee.delete()
 
             # ステータスを適用済みに変更
-            reservation.status = Reservation.APPLIED
+            reservation.status = StagedChange.APPLIED
             reservation.applied_at = timezone.now()
             reservation.save()
 
-            return employee if reservation.action != Reservation.ACTION_DELETE else None
+            return employee if reservation.action != StagedChange.ACTION_DELETE else None
 
     @staticmethod
     def get_pending_reservations(scheduled_date=None):
@@ -143,9 +143,9 @@ class EmployeeReservationHelper:
             scheduled_date: 指定日以前の予約のみ取得（Noneの場合は全て）
         """
         content_type = EmployeeReservationHelper.get_content_type()
-        queryset = Reservation.objects.filter(
+        queryset = StagedChange.objects.filter(
             content_type=content_type,
-            status=Reservation.PENDING,
+            status=StagedChange.PENDING,
         )
 
         if scheduled_date:

@@ -2,26 +2,29 @@ from uuid import uuid7
 
 from django.db import models
 
-from .base import SoftDeleteModel, TimestampedModel
+from .base import SoftDeleteModel
 
 
-class Department(TimestampedModel, SoftDeleteModel):
-    """組織マスターモデル（隣接リストモデル）"""
+class Department(SoftDeleteModel):
+    """部門マスターモデル"""
 
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, verbose_name='ID')
-    name = models.CharField(max_length=200, verbose_name='組織名')
+    code = models.CharField(max_length=7, verbose_name='部門コード', null=True, blank=False)
+    name = models.CharField(max_length=200, verbose_name='部門名')
     parent = models.ForeignKey(
         'self',
         on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name='children',
-        verbose_name='親組織',
+        verbose_name='親部門',
     )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name='作成日時')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新日時')
 
     class Meta:
-        verbose_name = '組織'
-        verbose_name_plural = '組織'
+        verbose_name = '部門'
+        verbose_name_plural = '部門'
         ordering = ['name']
         indexes = [
             models.Index(fields=['parent']),

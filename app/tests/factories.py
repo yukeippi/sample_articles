@@ -95,9 +95,16 @@ def create_article_with_comments(num_comments=3):
 class DepartmentFactory:
     """組織ファクトリ"""
 
+    _counter = 0
+
     @staticmethod
     def create(parent=None, **kwargs):
         """組織を作成"""
+        # codeが指定されていない場合のみ自動生成
+        if 'code' not in kwargs:
+            DepartmentFactory._counter += 1
+            kwargs['code'] = f'D{str(DepartmentFactory._counter).zfill(6)}'
+
         defaults = {
             'name': fake.company(),
             'parent': parent,
@@ -114,9 +121,16 @@ class DepartmentFactory:
 class EmployeeFactory:
     """社員ファクトリ"""
 
+    _counter = 0
+
     @staticmethod
     def create(department=None, **kwargs):
         """社員を作成"""
+        # codeが指定されていない場合のみ自動生成
+        if 'code' not in kwargs:
+            EmployeeFactory._counter += 1
+            kwargs['code'] = f'E{str(EmployeeFactory._counter).zfill(6)}'
+
         defaults = {
             'name': fake.name(),
             'email': fake.email(),
@@ -133,11 +147,11 @@ class EmployeeFactory:
 
 def create_department_hierarchy():
     """組織階層を作成（親組織→子組織→孫組織）"""
-    parent = DepartmentFactory.create(name='本社')
-    child1 = DepartmentFactory.create(name='営業部', parent=parent)
-    child2 = DepartmentFactory.create(name='開発部', parent=parent)
-    grandchild1 = DepartmentFactory.create(name='営業一課', parent=child1)
-    grandchild2 = DepartmentFactory.create(name='営業二課', parent=child1)
+    parent = DepartmentFactory.create(name='本社', code='D000001')
+    child1 = DepartmentFactory.create(name='営業部', code='D000002', parent=parent)
+    child2 = DepartmentFactory.create(name='開発部', code='D000003', parent=parent)
+    grandchild1 = DepartmentFactory.create(name='営業一課', code='D000004', parent=child1)
+    grandchild2 = DepartmentFactory.create(name='営業二課', code='D000005', parent=child1)
 
     return {
         'parent': parent,

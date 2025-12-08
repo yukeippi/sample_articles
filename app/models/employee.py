@@ -3,13 +3,14 @@ from uuid import uuid7
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from .base import SoftDeleteModel, TimestampedModel
+from .base import SoftDeleteModel
 
 
-class Employee(TimestampedModel, SoftDeleteModel):
+class Employee(SoftDeleteModel):
     """社員モデル"""
 
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, verbose_name='ID')
+    code = models.CharField(max_length=7, verbose_name='社員コード', null=True, blank=False)
     name = models.CharField(max_length=200, verbose_name='氏名')
     email = models.EmailField(verbose_name='メールアドレス')
     department = models.ForeignKey(
@@ -20,6 +21,8 @@ class Employee(TimestampedModel, SoftDeleteModel):
         related_name='employees',
         verbose_name='所属組織',
     )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name='作成日時')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新日時')
 
     class Meta:
         verbose_name = '社員'

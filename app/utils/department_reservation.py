@@ -7,7 +7,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.utils import timezone
 
-from app.models import Department, Reservation
+from app.models import Department, StagedChange
 
 
 class DepartmentReservationHelper:
@@ -85,12 +85,12 @@ class DepartmentReservationHelper:
             data['name'] = name
         if parent:
             data['parent_id'] = str(parent.id)
-        elif parent is None and action in [Reservation.ACTION_CREATE, Reservation.ACTION_UPDATE]:
+        elif parent is None and action in [StagedChange.ACTION_CREATE, StagedChange.ACTION_UPDATE]:
             # 親をNullに設定する場合（ルート組織にする）
             data['parent_id'] = None
 
         # 統合の場合は統合先組織を保存
-        if action == Reservation.ACTION_MERGE:
+        if action == StagedChange.ACTION_MERGE:
             if not department:
                 raise ValueError('統合元組織を指定してください')
             if not target_department:
@@ -100,14 +100,14 @@ class DepartmentReservationHelper:
         # parent_reservationが指定されている場合は、depends_onに設定
         depends_on = parent_reservation if parent_reservation else None
 
-        reservation = Reservation.objects.create(
+        reservation = StagedChange.objects.create(
             content_type=content_type,
             object_id=department.id if department else None,
             action=action,
             data=data,
             scheduled_date=scheduled_date,
             depends_on=depends_on,
-            status=Reservation.PENDING,
+            status=StagedChange.PENDING,
         )
 
         # 循環参照チェック
@@ -130,14 +130,14 @@ class DepartmentReservationHelper:
         Returns:
             適用後のDepartmentオブジェクト
         """
-        if reservation.status != Reservation.PENDING:
+        if reservation.status != StagedChange.PENDING:
             raise ValueError('適用できるのは予約中のレコードのみです')
 
         if reservation.content_type != DepartmentReservationHelper.get_content_type():
             raise ValueError('組織以外の予約更新は適用できません')
 
         with transaction.atomic():
-            if reservation.action == Reservation.ACTION_CREATE:
+            if reservation.action == StagedChange.ACTION_CREATE:
                 # 新規作成
                 parent_id = reservation.data.get('parent_id')
                 parent = None
@@ -156,7 +156,7 @@ class DepartmentReservationHelper:
                 )
                 reservation.applied_object_id = dept.id
 
-            elif reservation.action == Reservation.ACTION_UPDATE:
+            elif reservation.action == StagedChange.ACTION_UPDATE:
                 # 更新
                 if not reservation.object_id:
                     raise ValueError('更新対象の組織が指定されていません')
@@ -178,7 +178,7 @@ class DepartmentReservationHelper:
 
                 dept.save()
 
-            elif reservation.action == Reservation.ACTION_DELETE:
+            elif reservation.action == StagedChange.ACTION_DELETE:
                 # 削除
                 if not reservation.object_id:
                     raise ValueError('削除対象の組織が指定されていません')
@@ -186,7 +186,7 @@ class DepartmentReservationHelper:
                 dept = Department.objects.get(id=reservation.object_id)
                 dept.delete()
 
-            elif reservation.action == Reservation.ACTION_MERGE:
+            elif reservation.action == StagedChange.ACTION_MERGE:
                 # 統合
                 if not reservation.object_id:
                     raise ValueError('統合元組織が指定されていません')
@@ -203,13 +203,13 @@ class DepartmentReservationHelper:
                 dept = None  # 統合後は統合元組織は削除される
 
             # ステータスを適用済みに変更
-            reservation.status = Reservation.APPLIED
+            reservation.status = StagedChange.APPLIED
             reservation.applied_at = timezone.now()
             reservation.save()
 
             return (
                 dept
-                if reservation.action not in [Reservation.ACTION_DELETE, Reservation.ACTION_MERGE]
+                if reservation.action not in [StagedChange.ACTION_DELETE, StagedChange.ACTION_MERGE]
                 else None
             )
 
@@ -221,9 +221,9 @@ class DepartmentReservationHelper:
             scheduled_date: 指定日以前の予約のみ取得（Noneの場合は全て）
         """
         content_type = DepartmentReservationHelper.get_content_type()
-        queryset = Reservation.objects.filter(
+        queryset = StagedChange.objects.filter(
             content_type=content_type,
-            status=Reservation.PENDING,
+            status=StagedChange.PENDING,
         )
 
         if scheduled_date:

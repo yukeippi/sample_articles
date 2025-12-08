@@ -4,10 +4,8 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
-from .base import TimestampedModel
 
-
-class Reservation(TimestampedModel):
+class StagedChange(models.Model):
     """汎用予約更新データ"""
 
     ACTION_CREATE = 'create'
@@ -33,6 +31,10 @@ class Reservation(TimestampedModel):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, verbose_name='ID')
+
+    # タイムスタンプ
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name='作成日時')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新日時')
 
     # 対象モデルの指定（GenericForeignKey）
     content_type = models.ForeignKey(

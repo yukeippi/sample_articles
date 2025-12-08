@@ -14,6 +14,7 @@
             <table class="table table-striped table-hover">
                 <thead class="table-light">
                     <tr>
+                        <th>社員コード</th>
                         <th>氏名</th>
                         <th>メールアドレス</th>
                         <th>所属組織</th>
@@ -23,6 +24,7 @@
                 <tbody>
                     {% for employee in employees %}
                     <tr>
+                        <td>{{ employee.code|default:"-" }}</td>
                         <td>{{ employee.name }}</td>
                         <td>{{ employee.email }}</td>
                         <td>{{ employee.department.name }}</td>

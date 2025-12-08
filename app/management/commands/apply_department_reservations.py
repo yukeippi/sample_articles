@@ -4,7 +4,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
-from app.models import Reservation
+from app.models import StagedChange
 from app.utils.department_reservation import DepartmentReservationHelper
 
 
@@ -52,7 +52,7 @@ class Command(BaseCommand):
 
         # トポロジカルソートで適用順序を決定
         try:
-            sorted_reservations = Reservation.topological_sort(reservations)
+            sorted_reservations = StagedChange.topological_sort(reservations)
             self.stdout.write(self.style.SUCCESS('依存関係を解決しました'))
         except ValueError as e:
             self.stdout.write(self.style.ERROR(f'エラー: {e!s}'))

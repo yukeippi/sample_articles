@@ -29,6 +29,7 @@
         <table class="table table-striped">
           <thead>
             <tr>
+              <th>部門コード</th>
               <th>組織名</th>
               <th>親組織</th>
               <th>作成日時</th>
@@ -41,6 +42,7 @@
           <tbody>
             {% for org in departments %}
               <tr>
+                <td>{{ org.code|default:"-" }}</td>
                 <td>{{ org.name }}</td>
                 <td>{{ org.parent.name|default:"（ルート）" }}</td>
                 <td>{{ org.created_at|date:"Y年m月d日 H:i" }}</td>
@@ -54,7 +56,7 @@
               </tr>
             {% empty %}
               <tr>
-                <td colspan="{% if user.is_authenticated %}5{% else %}4{% endif %}" class="text-center text-muted">
+                <td colspan="{% if user.is_authenticated %}6{% else %}5{% endif %}" class="text-center text-muted">
                   組織データがありません
                 </td>
               </tr>

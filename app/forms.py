@@ -1,6 +1,6 @@
 from django import forms
 
-from app.models import Article, Department, Employee, Reservation
+from app.models import Article, Department, Employee, StagedChange
 
 
 class ArticleForm(forms.ModelForm):
@@ -32,12 +32,16 @@ class DepartmentForm(forms.ModelForm):
 
     class Meta:
         model = Department
-        fields = ['name', 'parent']
+        fields = ['code', 'name', 'parent']
         widgets = {
+            'code': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': '部門コードを入力（7文字まで）'}
+            ),
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '組織名を入力'}),
             'parent': forms.Select(attrs={'class': 'form-select'}),
         }
         labels = {
+            'code': '部門コード',
             'name': '組織名',
             'parent': '親組織',
         }
@@ -83,7 +87,7 @@ class DepartmentReservationForm(forms.Form):
         widget=forms.Select(attrs={'class': 'form-select'}),
     )
     parent_reservation = forms.ModelChoiceField(
-        queryset=Reservation.objects.none(),  # 初期化時に設定
+        queryset=StagedChange.objects.none(),  # 初期化時に設定
         required=False,
         label='親組織（未来の予約）',
         help_text='未適用の新規作成予約を親として指定する場合に選択',
@@ -107,7 +111,7 @@ class DepartmentReservationForm(forms.Form):
         from app.utils.department_reservation import DepartmentReservationHelper
 
         pending_reservations = DepartmentReservationHelper.get_pending_reservations()
-        create_reservations = pending_reservations.filter(action=Reservation.ACTION_CREATE)
+        create_reservations = pending_reservations.filter(action=StagedChange.ACTION_CREATE)
 
         # 選択肢をわかりやすく表示
         self.fields['parent_reservation'].queryset = create_reservations
@@ -157,8 +161,11 @@ class EmployeeForm(forms.ModelForm):
 
     class Meta:
         model = Employee
-        fields = ['name', 'email', 'department']
+        fields = ['code', 'name', 'email', 'department']
         widgets = {
+            'code': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': '社員コードを入力（7文字まで）'}
+            ),
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '氏名を入力'}),
             'email': forms.EmailInput(
                 attrs={'class': 'form-control', 'placeholder': 'メールアドレスを入力'}
@@ -166,6 +173,7 @@ class EmployeeForm(forms.ModelForm):
             'department': forms.Select(attrs={'class': 'form-select'}),
         }
         labels = {
+            'code': '社員コード',
             'name': '氏名',
             'email': 'メールアドレス',
             'department': '所属組織',
