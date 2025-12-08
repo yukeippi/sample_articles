@@ -9,6 +9,12 @@ if ! command -v uv >/dev/null 2>&1; then
     exit 1
 fi
 
+echo "Creating virtual environment..."
+uv venv --python 3.14 .venv --clear
+
+# Activate virtual environment
+source .venv/bin/activate
+
 # Sync dependencies using uv
 echo "Syncing project dependencies..."
 uv sync --dev
