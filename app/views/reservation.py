@@ -104,7 +104,7 @@ class DepartmentReservationUpdateView(LoginRequiredMixin, View):
             elif 'parent' in form.cleaned_data and form.cleaned_data['parent'] is None:
                 data['parent_id'] = None
             if form.cleaned_data.get('target_department'):
-                data['target_organization_id'] = str(form.cleaned_data['target_department'].id)
+                data['target_department_id'] = str(form.cleaned_data['target_department'].id)
             reservation.data = data
             reservation.save()
 

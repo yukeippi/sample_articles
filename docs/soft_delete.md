@@ -9,7 +9,7 @@
 本システムでは、以下のモデルで論理削除を実装しています：
 
 - **Employee（社員）**
-- **Organization（組織）**
+- **department（組織）**
 
 ## 基底モデル
 
@@ -204,7 +204,7 @@ deleted_employee.restore()
 
 ```python
 # 組織の削除履歴を確認
-deleted_orgs = Organization.objects.only_deleted()
+deleted_orgs = department.objects.only_deleted()
 for org in deleted_orgs:
     print(f'{org.name} - 削除日時: {org.deleted_at}')
 ```
@@ -227,11 +227,11 @@ for employee in old_deleted:
 
 ```python
 # 特定組織の全社員を論理削除
-org = Organization.objects.get(name='営業部')
+org = department.objects.get(name='営業部')
 org.employees.all().delete()
 
 # 一括復元
-deleted_employees = Employee.objects.only_deleted().filter(organization=org)
+deleted_employees = Employee.objects.only_deleted().filter(department=org)
 for employee in deleted_employees:
     employee.restore()
 ```
@@ -244,12 +244,12 @@ for employee in deleted_employees:
 
 ```python
 # 組織を論理削除しても、社員との関係は維持される
-org = Organization.objects.get(name='営業部')
+org = department.objects.get(name='営業部')
 org.delete()  # 論理削除
 
 # 社員から削除済み組織を参照可能
 employee = Employee.objects.get(email='yamada.taro@example.com')
-print(employee.organization.name)  # '営業部' （削除済みでも参照可能）
+print(employee.department.name)  # '営業部' （削除済みでも参照可能）
 ```
 
 ### 2. ユニーク制約（Employee モデルの実装例）
@@ -267,7 +267,7 @@ employee.delete()  # 論理削除
 Employee.objects.create(
     email='yamada.taro@example.com',  # OK（employee は削除済み）
     name='山田次郎',
-    organization=org
+    department=org
 )
 ```
 
@@ -311,7 +311,7 @@ class Employee(TimestampedModel, SoftDeleteModel):
 
 ```python
 # 組織の論理削除時に子組織も論理削除
-class Organization(TimestampedModel, SoftDeleteModel):
+class department(TimestampedModel, SoftDeleteModel):
     parent = models.ForeignKey(
         'self',
         on_delete=models.CASCADE,  # 物理削除のカスケード
@@ -362,7 +362,7 @@ class Organization(TimestampedModel, SoftDeleteModel):
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from datetime import timedelta
-from app.models import Employee, Organization
+from app.models import Employee, department
 
 class Command(BaseCommand):
     help = '30日以上前に削除されたレコードを物理削除'
@@ -395,16 +395,16 @@ class Command(BaseCommand):
 
 ```python
 from django.test import TestCase
-from app.models import Employee, Organization
+from app.models import Employee, department
 
 class SoftDeleteTestCase(TestCase):
     def test_soft_delete(self):
         """論理削除のテスト"""
-        org = Organization.objects.create(name='テスト部署')
+        org = department.objects.create(name='テスト部署')
         employee = Employee.objects.create(
             name='テスト太郎',
             email='test@example.com',
-            organization=org
+            department=org
         )
 
         # 削除
@@ -425,11 +425,11 @@ class SoftDeleteTestCase(TestCase):
 
     def test_restore(self):
         """復元のテスト"""
-        org = Organization.objects.create(name='テスト部署')
+        org = department.objects.create(name='テスト部署')
         employee = Employee.objects.create(
             name='テスト太郎',
             email='test@example.com',
-            organization=org
+            department=org
         )
 
         # 削除と復元
@@ -446,11 +446,11 @@ class SoftDeleteTestCase(TestCase):
 
     def test_hard_delete(self):
         """物理削除のテスト"""
-        org = Organization.objects.create(name='テスト部署')
+        org = department.objects.create(name='テスト部署')
         employee = Employee.objects.create(
             name='テスト太郎',
             email='test@example.com',
-            organization=org
+            department=org
         )
 
         employee_id = employee.id

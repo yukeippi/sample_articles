@@ -47,18 +47,18 @@
             <li class="nav-item dropdown">
               <a class="nav-link dropdown-toggle"
                  href="#"
-                 id="organizationDropdown"
+                 id="departmentDropdown"
                  role="button"
                  data-bs-toggle="dropdown"
                  aria-expanded="false">
                 組織
               </a>
-              <ul class="dropdown-menu" aria-labelledby="organizationDropdown">
-                <li><a class="dropdown-item" href="{% url 'app:organization_list' %}">組織一覧</a></li>
-                <li><a class="dropdown-item" href="{% url 'app:organization_create' %}">組織の新規作成</a></li>
-                <li><a class="dropdown-item" href="{% url 'app:organization_merge' %}">組織の統合</a></li>
+              <ul class="dropdown-menu" aria-labelledby="departmentDropdown">
+                <li><a class="dropdown-item" href="{% url 'app:department_list' %}">組織一覧</a></li>
+                <li><a class="dropdown-item" href="{% url 'app:department_create' %}">組織の新規作成</a></li>
+                <li><a class="dropdown-item" href="{% url 'app:department_merge' %}">組織の統合</a></li>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="{% url 'app:organization_reservation_list' %}">組織の予約更新</a></li>
+                <li><a class="dropdown-item" href="{% url 'app:department_reservation_list' %}">組織の予約更新</a></li>
               </ul>
             </li>
           </ul>

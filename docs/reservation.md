@@ -134,15 +134,15 @@ cancelled | キャンセル済み
 app/
 ├── models/
 │   ├── reservation.py          # 汎用予約更新モデル
-│   ├── organization.py         # 組織モデル
+│   ├── department.py         # 組織モデル
 │   └── __init__.py
 ├── utils/
-│   └── organization_reservation.py  # 組織用ヘルパークラス
+│   └── department_reservation.py  # 組織用ヘルパークラス
 ├── forms.py                    # フォーム定義
-├── views_organization.py       # 組織関連ビュー
+├── views_department.py       # 組織関連ビュー
 └── management/
     └── commands/
-        └── apply_organization_reservations.py  # バッチ適用コマンド
+        └── apply_department_reservations.py  # バッチ適用コマンド
 ```
 
 ### 主要クラス
@@ -198,7 +198,7 @@ DepartmentReservationHelper.create_reservation(
     action='create',
     scheduled_date=date(2025, 4, 1),
     name='営業部',
-    parent=existing_dept,  # 既存のOrganizationオブジェクト
+    parent=existing_dept,  # 既存のdepartmentオブジェクト
 )
 # → 階層検証が自動的に実行されます
 
@@ -219,7 +219,7 @@ DepartmentReservationHelper.create_reservation(
 DepartmentReservationHelper.create_reservation(
     action='update',
     scheduled_date=date(2025, 5, 1),
-    organization=existing_dept,
+    department=existing_dept,
     name='営業部（新名称）',
     parent=new_parent_org,
 )
@@ -232,7 +232,7 @@ DepartmentReservationHelper.create_reservation(
 DepartmentReservationHelper.create_reservation(
     action='delete',
     scheduled_date=date(2025, 6, 1),
-    organization=org_to_delete,
+    department=org_to_delete,
 )
 ```
 
@@ -240,14 +240,14 @@ DepartmentReservationHelper.create_reservation(
 
 ```bash
 # 今日までの予約を適用
-python manage.py apply_organization_reservations
+python manage.py apply_department_reservations
 # → 依存関係を自動解決し、最適な順序で適用されます
 
 # 特定日までの予約を適用
-python manage.py apply_organization_reservations --date 2025-04-01
+python manage.py apply_department_reservations --date 2025-04-01
 
 # ドライラン（適用せずに確認のみ）
-python manage.py apply_organization_reservations --dry-run
+python manage.py apply_department_reservations --dry-run
 # → 適用順序を事前に確認できます
 ```
 
@@ -373,7 +373,7 @@ class EmployeeReservationHelper:
 
     @staticmethod
     def create_reservation(action, scheduled_date, employee=None,
-                          name=None, email=None, organization=None):
+                          name=None, email=None, department=None):
         """社員の予約更新を作成"""
         content_type = EmployeeReservationHelper.get_content_type()
 
@@ -382,10 +382,10 @@ class EmployeeReservationHelper:
             data['name'] = name
         if email:
             data['email'] = email
-        if organization:
-            data['organization_id'] = str(organization.id)
-        elif organization is None and action in [Reservation.ACTION_CREATE, Reservation.ACTION_UPDATE]:
-            data['organization_id'] = None
+        if department:
+            data['department_id'] = str(department.id)
+        elif department is None and action in [Reservation.ACTION_CREATE, Reservation.ACTION_UPDATE]:
+            data['department_id'] = None
 
         return Reservation.objects.create(
             content_type=content_type,
@@ -403,7 +403,7 @@ class EmployeeReservationHelper:
             employee = Employee.objects.create(
                 name=reservation.data['name'],
                 email=reservation.data['email'],
-                organization_id=reservation.data.get('organization_id'),
+                department_id=reservation.data.get('department_id'),
             )
             reservation.applied_object_id = employee.id
         elif reservation.action == Reservation.ACTION_UPDATE:
@@ -412,8 +412,8 @@ class EmployeeReservationHelper:
                 employee.name = reservation.data['name']
             if 'email' in reservation.data:
                 employee.email = reservation.data['email']
-            if 'organization_id' in reservation.data:
-                employee.organization_id = reservation.data['organization_id']
+            if 'department_id' in reservation.data:
+                employee.department_id = reservation.data['department_id']
             employee.save()
         elif reservation.action == Reservation.ACTION_DELETE:
             employee = Employee.objects.get(id=reservation.object_id)
@@ -472,7 +472,7 @@ class EmployeeReservationForm(forms.Form):
         required=False,
         label='メールアドレス',
     )
-    organization = forms.ModelChoiceField(
+    department = forms.ModelChoiceField(
         queryset=Department.objects.all(),
         required=False,
         label='所属組織',
@@ -555,7 +555,7 @@ EmployeeReservationHelper.create_reservation(
     scheduled_date=date(2025, 4, 1),
     name='山田太郎',
     email='yamada.taro@example.com',
-    organization=org,  # Organizationオブジェクト
+    department=org,  # departmentオブジェクト
 )
 ```
 
@@ -567,7 +567,7 @@ EmployeeReservationHelper.create_reservation(
     scheduled_date=date(2025, 5, 1),
     employee=existing_employee,
     name='山田次郎',  # 名前変更
-    organization=new_org,  # 組織異動
+    department=new_org,  # 組織異動
 )
 ```
 
@@ -627,7 +627,7 @@ EmployeeReservationHelper.create_reservation(
   "data": {
     "name": "山田太郎",
     "email": "yamada.taro@example.com",
-    "organization_id": "org-uuid"
+    "department_id": "org-uuid"
   },
   "depends_on_id": null,
   "scheduled_date": "2025-04-01",
@@ -646,7 +646,7 @@ EmployeeReservationHelper.create_reservation(
   "object_id": "existing-employee-uuid",
   "action": "update",
   "data": {
-    "organization_id": "new-org-uuid"
+    "department_id": "new-org-uuid"
   },
   "depends_on_id": null,
   "scheduled_date": "2025-04-01",

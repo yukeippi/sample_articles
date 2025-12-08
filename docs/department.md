@@ -152,7 +152,7 @@ class Department(TimestampedModel, SoftDeleteModel):
         self.children.update(parent=None)
 
         # 所属社員の組織をNULLに設定（未所属化）
-        self.employees.update(organization=None)
+        self.employees.update(department=None)
 
         # 自身を論理削除
         super().delete(using=using, keep_parents=keep_parents)
@@ -198,10 +198,10 @@ sales_team1 = Department.objects.create(
 
 ```python
 # 全組織取得（論理削除されていない組織のみ）
-organizations = Department.objects.all()
+departments = Department.objects.all()
 
 # 親組織を含めて取得（N+1問題を回避）
-organizations = Department.objects.select_related('parent').all()
+departments = Department.objects.select_related('parent').all()
 
 # ルート組織のみ取得
 root_orgs = Department.objects.filter(parent__isnull=True)
@@ -248,7 +248,7 @@ print(org.is_deleted)  # True
 
 # 論理削除時の動作:
 # - 子組織の parent は NULL に設定される（ルート組織化）
-# - 所属社員の organization は NULL に設定される（未所属化）
+# - 所属社員の department は NULL に設定される（未所属化）
 ```
 
 **論理削除の具体例:**
@@ -338,7 +338,7 @@ print(sales_team1.get_level())  # 2
 from app.utils.tree import build_tree, get_tree_html
 
 # 全組織を取得
-organizations = Department.objects.select_related('parent').all()
+departments = Department.objects.select_related('parent').all()
 
 # ツリー用のデータを準備
 org_list = [
@@ -347,7 +347,7 @@ org_list = [
         'name': org.name,
         'parent': str(org.parent.id) if org.parent else None,
     }
-    for org in organizations
+    for org in departments
 ]
 
 # ツリー構造を構築
@@ -417,7 +417,7 @@ class DepartmentForm(forms.ModelForm):
     """組織の作成・編集フォーム"""
 
     class Meta:
-        model = Organization
+        model = department
         fields = ['name', 'parent']
         widgets = {
             'name': forms.TextInput(
@@ -520,7 +520,7 @@ def delete(self, using=None, keep_parents=False):
     self.children.update(parent=None)
 
     # 所属社員の組織をNULLに設定（未所属化）
-    self.employees.update(organization=None)
+    self.employees.update(department=None)
 
     # 自身を論理削除
     super().delete(using=using, keep_parents=keep_parents)
@@ -528,7 +528,7 @@ def delete(self, using=None, keep_parents=False):
 
 **動作:**
 1. **子組織**: parent を NULL に設定し、ルート組織として独立させる
-2. **所属社員**: organization を NULL に設定し、未所属社員とする
+2. **所属社員**: department を NULL に設定し、未所属社員とする
 3. **組織自体**: deleted_at に現在時刻を設定し、論理削除する
 
 **具体例:**
@@ -547,8 +547,8 @@ org.delete()
 営業部（deleted_at: 2025-01-24 10:00:00）
 営業一課（parent: None）※ルート組織化
 営業二課（parent: None）※ルート組織化
-山田太郎（organization: None）※未所属
-田中花子（organization: None）※未所属
+山田太郎（department: None）※未所属
+田中花子（department: None）※未所属
 ```
 
 ### 物理削除の動作
@@ -567,7 +567,7 @@ org.hard_delete()  # 子組織も物理削除される
 
 ### 論理削除時の動作
 
-組織を論理削除すると、所属社員の `organization` フィールドは NULL に設定され、未所属社員となります。
+組織を論理削除すると、所属社員の `department` フィールドは NULL に設定され、未所属社員となります。
 
 **論理削除の場合:**
 ```python
@@ -634,7 +634,7 @@ DepartmentReservationHelper.create_reservation(
 DepartmentReservationHelper.create_reservation(
     action='update',
     scheduled_date=date(2025, 4, 1),
-    organization=sales_dept,
+    department=sales_dept,
     name='営業本部'
 )
 
@@ -642,7 +642,7 @@ DepartmentReservationHelper.create_reservation(
 DepartmentReservationHelper.create_reservation(
     action='delete',
     scheduled_date=date(2025, 12, 31),
-    organization=old_dept
+    department=old_dept
 )
 ```
 

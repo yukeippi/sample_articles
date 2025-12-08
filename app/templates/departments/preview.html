@@ -6,7 +6,7 @@
 <div class="container mt-5">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>組織プレビュー</h1>
-    <a href="{% url 'app:organization_reservation_list' %}" class="btn btn-secondary">予約更新一覧に戻る</a>
+    <a href="{% url 'app:department_reservation_list' %}" class="btn btn-secondary">予約更新一覧に戻る</a>
   </div>
 
   <div class="card mb-4">
@@ -38,9 +38,9 @@
     <div class="card-body">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h5 class="card-title mb-0">組織ツリー（{{ preview_date|date:"Y年m月d日" }} 時点）</h5>
-        <span class="badge bg-info">組織数: {{ organizations_count }}</span>
+        <span class="badge bg-info">組織数: {{ departments_count }}</span>
       </div>
-      <div class="organization-tree">
+      <div class="department-tree">
         {{ tree_html|safe }}
       </div>
     </div>
@@ -48,7 +48,7 @@
 </div>
 
 <style>
-  .organization-tree {
+  .department-tree {
     padding: 1rem;
   }
 

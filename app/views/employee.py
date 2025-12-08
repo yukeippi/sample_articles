@@ -15,7 +15,7 @@ class EmployeeListView(View):
     """社員一覧ビュー"""
 
     def get(self, request):
-        employees = Employee.objects.select_related('organization').all()
+        employees = Employee.objects.select_related('department').all()
 
         context = {
             'employees': employees,
@@ -67,7 +67,7 @@ class EmployeeReservationListView(LoginRequiredMixin, View):
             reservation.display_employee = formatted['employee']
             reservation.display_name = formatted['name']
             reservation.display_email = formatted['email']
-            reservation.display_organization = formatted['organization']
+            reservation.display_department = formatted['department']
             reservation.display_action = formatted['action_display']
             reservations_with_info.append(reservation)
 
@@ -94,7 +94,7 @@ class EmployeeReservationCreateView(LoginRequiredMixin, View):
                 employee=form.cleaned_data.get('employee'),
                 name=form.cleaned_data.get('name'),
                 email=form.cleaned_data.get('email'),
-                organization=form.cleaned_data.get('organization'),
+                department=form.cleaned_data.get('department'),
             )
             return redirect('app:employee_reservation_list')
         return render(request, 'employees/reservations/form.html', {'form': form})
@@ -113,7 +113,7 @@ class EmployeeReservationUpdateView(LoginRequiredMixin, View):
             'action': formatted['action'],
             'name': formatted['name'],
             'email': formatted['email'],
-            'organization': formatted['organization'],
+            'department': formatted['department'],
             'scheduled_date': formatted['scheduled_date'],
         })
         return render(request, 'employees/reservations/form.html', {
@@ -135,10 +135,10 @@ class EmployeeReservationUpdateView(LoginRequiredMixin, View):
                 data['name'] = form.cleaned_data['name']
             if form.cleaned_data.get('email'):
                 data['email'] = form.cleaned_data['email']
-            if form.cleaned_data.get('organization'):
-                data['organization_id'] = str(form.cleaned_data['organization'].id)
-            elif 'organization' in form.cleaned_data and form.cleaned_data['organization'] is None:
-                data['organization_id'] = None
+            if form.cleaned_data.get('department'):
+                data['department_id'] = str(form.cleaned_data['department'].id)
+            elif 'department' in form.cleaned_data and form.cleaned_data['department'] is None:
+                data['department_id'] = None
             reservation.data = data
             reservation.save()
 
@@ -179,7 +179,7 @@ class EmployeePreviewView(LoginRequiredMixin, View):
         preview_date = date.fromisoformat(preview_date_str) if preview_date_str else date.today()
 
         # 現在の社員データを取得
-        employees = Employee.objects.select_related('organization').all()
+        employees = Employee.objects.select_related('department').all()
 
         # メモリ上で社員データを配列化
         employee_dict = {}
@@ -188,8 +188,8 @@ class EmployeePreviewView(LoginRequiredMixin, View):
                 'id': str(emp.id),
                 'name': emp.name,
                 'email': emp.email,
-                'organization_id': str(emp.department.id) if emp.department else None,
-                'organization_name': emp.department.name if emp.department else None,
+                'department_id': str(emp.department.id) if emp.department else None,
+                'department_name': emp.department.name if emp.department else None,
             }
 
         # プレビュー日付までの予約更新を適用（メモリ上のみ）
@@ -207,8 +207,8 @@ class EmployeePreviewView(LoginRequiredMixin, View):
                     'id': new_id,
                     'name': formatted['name'],
                     'email': formatted['email'],
-                    'organization_id': str(formatted['organization'].id) if formatted['organization'] else None,
-                    'organization_name': formatted['organization'].name if formatted['organization'] else None,
+                    'department_id': str(formatted['department'].id) if formatted['department'] else None,
+                    'department_name': formatted['department'].name if formatted['department'] else None,
                     'is_preview': True,  # プレビューフラグ
                 }
             elif reservation.action == Reservation.ACTION_UPDATE:
@@ -219,12 +219,12 @@ class EmployeePreviewView(LoginRequiredMixin, View):
                         employee_dict[emp_id]['name'] = formatted['name']
                     if formatted['email']:
                         employee_dict[emp_id]['email'] = formatted['email']
-                    if formatted['organization']:
-                        employee_dict[emp_id]['organization_id'] = str(formatted['organization'].id)
-                        employee_dict[emp_id]['organization_name'] = formatted['organization'].name
-                    elif 'organization' in reservation.data:
-                        employee_dict[emp_id]['organization_id'] = None
-                        employee_dict[emp_id]['organization_name'] = None
+                    if formatted['department']:
+                        employee_dict[emp_id]['department_id'] = str(formatted['department'].id)
+                        employee_dict[emp_id]['department_name'] = formatted['department'].name
+                    elif 'department' in reservation.data:
+                        employee_dict[emp_id]['department_id'] = None
+                        employee_dict[emp_id]['department_name'] = None
             elif reservation.action == Reservation.ACTION_DELETE:
                 # 削除
                 emp_id = str(reservation.object_id)

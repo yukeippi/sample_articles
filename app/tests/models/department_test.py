@@ -111,7 +111,7 @@ class TestDepartmentSoftDelete:
         assert child1.get_level() == 0
         assert child2.get_level() == 0
 
-    def test_soft_delete_sets_employees_organization_to_null(self):
+    def test_soft_delete_sets_employees_department_to_null(self):
         """論理削除時に所属社員の組織がNULLになる"""
         org, employees = create_department_with_employees(num_employees=3)
 
@@ -130,11 +130,11 @@ class TestDepartmentSoftDelete:
         child2 = DepartmentFactory.create(name='営業二課', parent=parent)
 
         # 親組織に社員を追加
-        parent_employees = EmployeeFactory.create_batch(2, organization=parent)
+        parent_employees = EmployeeFactory.create_batch(2, department=parent)
 
         # 子組織に社員を追加
-        child1_employees = EmployeeFactory.create_batch(2, organization=child1)
-        child2_employees = EmployeeFactory.create_batch(2, organization=child2)
+        child1_employees = EmployeeFactory.create_batch(2, department=child1)
+        child2_employees = EmployeeFactory.create_batch(2, department=child2)
 
         # 親組織を論理削除
         parent.delete()
@@ -206,7 +206,7 @@ class TestDepartmentSoftDelete:
     def test_hard_delete_protected_by_employees(self):
         """社員が存在する場合、物理削除はPROTECT制約でエラーになる"""
         org = DepartmentFactory.create(name='営業部')
-        EmployeeFactory.create(organization=org)
+        EmployeeFactory.create(department=org)
 
         # 物理削除しようとするとProtectedError
         with pytest.raises(ProtectedError):
@@ -280,7 +280,7 @@ class TestDepartmentMerge:
         org_b = DepartmentFactory.create(name='組織B')
 
         # 組織Bに社員を追加
-        employees_b = EmployeeFactory.create_batch(3, organization=org_b)
+        employees_b = EmployeeFactory.create_batch(3, department=org_b)
 
         # 組織Bを組織Aに統合
         org_b.merge_into(org_a)
@@ -314,12 +314,12 @@ class TestDepartmentMerge:
         org_b = DepartmentFactory.create(name='組織B')
 
         # 組織Bに社員と子組織を追加
-        employees_b = EmployeeFactory.create_batch(2, organization=org_b)
+        employees_b = EmployeeFactory.create_batch(2, department=org_b)
         child1 = DepartmentFactory.create(name='組織B-子1', parent=org_b)
         child2 = DepartmentFactory.create(name='組織B-子2', parent=org_b)
 
         # 子組織にも社員を追加
-        child1_employees = EmployeeFactory.create_batch(2, organization=child1)
+        child1_employees = EmployeeFactory.create_batch(2, department=child1)
 
         # 組織Bを組織Aに統合
         org_b.merge_into(org_a)
@@ -347,7 +347,7 @@ class TestDepartmentMerge:
         with pytest.raises(ValueError, match='自分自身に統合することはできません'):
             org.merge_into(org)
 
-    def test_merge_to_deleted_organization_raises_error(self):
+    def test_merge_to_deleted_department_raises_error(self):
         """削除済み組織への統合はエラー"""
         org_a = DepartmentFactory.create(name='組織A')
         org_b = DepartmentFactory.create(name='組織B')
@@ -379,16 +379,16 @@ class TestDepartmentMerge:
         with pytest.raises(ValueError, match='統合先は組織オブジェクトである必要があります'):
             org.merge_into('invalid_type')
 
-    def test_merge_preserves_target_organization(self):
+    def test_merge_preserves_target_department(self):
         """統合先組織は変更されない"""
         org_a = DepartmentFactory.create(name='組織A')
         org_b = DepartmentFactory.create(name='組織B')
 
         # 組織Aに既存の社員を追加
-        employees_a = EmployeeFactory.create_batch(2, organization=org_a)
+        employees_a = EmployeeFactory.create_batch(2, department=org_a)
 
         # 組織Bに社員を追加
-        employees_b = EmployeeFactory.create_batch(3, organization=org_b)
+        employees_b = EmployeeFactory.create_batch(3, department=org_b)
 
         # 組織Bを組織Aに統合
         org_b.merge_into(org_a)

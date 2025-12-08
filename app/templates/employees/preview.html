@@ -57,7 +57,7 @@
                   {% endif %}
                 </td>
                 <td>{{ employee.email }}</td>
-                <td>{{ employee.organization_name|default:"—" }}</td>
+                <td>{{ employee.department_name|default:"—" }}</td>
               </tr>
             {% empty %}
               <tr>

@@ -25,7 +25,7 @@
                     <tr>
                         <td>{{ employee.name }}</td>
                         <td>{{ employee.email }}</td>
-                        <td>{{ employee.organization.name }}</td>
+                        <td>{{ employee.department.name }}</td>
                         <td>
                             <a href="{% url 'app:employee_update' employee.pk %}" class="btn btn-sm btn-outline-primary">編集</a>
                             <a href="{% url 'app:employee_delete' employee.pk %}" class="btn btn-sm btn-outline-danger">削除</a>

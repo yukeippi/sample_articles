@@ -87,7 +87,7 @@ class DepartmentReservationHelper:
                 raise ValueError('統合元組織を指定してください')
             if not target_department:
                 raise ValueError('統合先組織を指定してください')
-            data['target_organization_id'] = str(target_department.id)
+            data['target_department_id'] = str(target_department.id)
 
         # parent_reservationが指定されている場合は、depends_onに設定
         depends_on = parent_reservation if parent_reservation else None
@@ -183,7 +183,7 @@ class DepartmentReservationHelper:
                 if not reservation.object_id:
                     raise ValueError('統合元組織が指定されていません')
 
-                target_department_id = reservation.data.get('target_organization_id')
+                target_department_id = reservation.data.get('target_department_id')
                 if not target_department_id:
                     raise ValueError('統合先組織が指定されていません')
 
@@ -252,7 +252,7 @@ class DepartmentReservationHelper:
                 pass
 
         target_department = None
-        target_department_id = reservation.data.get('target_organization_id')
+        target_department_id = reservation.data.get('target_department_id')
         if target_department_id:
             try:
                 target_department = Department.objects.get(id=target_department_id)

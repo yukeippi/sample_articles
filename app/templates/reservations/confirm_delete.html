@@ -25,7 +25,7 @@
             </dd>
 
             <dt class="col-sm-3">対象組織</dt>
-            <dd class="col-sm-9">{{ object.organization.name|default:"—" }}</dd>
+            <dd class="col-sm-9">{{ object.department.name|default:"—" }}</dd>
 
             <dt class="col-sm-3">組織名</dt>
             <dd class="col-sm-9">{{ object.name|default:"—" }}</dd>
@@ -44,7 +44,7 @@
             {% csrf_token %}
             <div class="d-flex gap-2">
               <button type="submit" class="btn btn-warning">キャンセル</button>
-              <a href="{% url 'app:organization_reservation_list' %}" class="btn btn-secondary">戻る</a>
+              <a href="{% url 'app:department_reservation_list' %}" class="btn btn-secondary">戻る</a>
             </div>
           </form>
         </div>

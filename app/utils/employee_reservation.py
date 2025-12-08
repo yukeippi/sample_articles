@@ -40,10 +40,10 @@ class EmployeeReservationHelper:
         if email:
             data['email'] = email
         if department:
-            data['organization_id'] = str(department.id)
+            data['department_id'] = str(department.id)
         elif department is None and action in [Reservation.ACTION_CREATE, Reservation.ACTION_UPDATE]:
             # 組織をNullに設定する場合
-            data['organization_id'] = None
+            data['department_id'] = None
 
         reservation = Reservation.objects.create(
             content_type=content_type,
@@ -75,17 +75,17 @@ class EmployeeReservationHelper:
         with transaction.atomic():
             if reservation.action == Reservation.ACTION_CREATE:
                 # 新規作成
-                organization_id = reservation.data.get('organization_id')
-                organization = None
-                if organization_id:
+                department_id = reservation.data.get('department_id')
+                department = None
+                if department_id:
                     from app.models import Department
-                    organization = Department.objects.get(id=organization_id)
+                    department = Department.objects.get(id=department_id)
 
                 employee = Employee.objects.create(
                     id=uuid7(),
                     name=reservation.data['name'],
                     email=reservation.data['email'],
-                    organization=organization,
+                    department=department,
                 )
                 reservation.applied_object_id = employee.id
 
@@ -102,11 +102,11 @@ class EmployeeReservationHelper:
                 if 'email' in reservation.data:
                     employee.email = reservation.data['email']
 
-                if 'organization_id' in reservation.data:
-                    organization_id = reservation.data['organization_id']
-                    if organization_id:
+                if 'department_id' in reservation.data:
+                    department_id = reservation.data['department_id']
+                    if department_id:
                         from app.models import Department
-                        employee.department = Department.objects.get(id=organization_id)
+                        employee.department = Department.objects.get(id=department_id)
                     else:
                         employee.department = None
 
@@ -157,7 +157,7 @@ class EmployeeReservationHelper:
                 'employee': Employee or None,
                 'name': str,
                 'email': str,
-                'organization': Department or None,
+                'department': Department or None,
                 'scheduled_date': date,
                 'status': str,
             }
@@ -169,12 +169,12 @@ class EmployeeReservationHelper:
             except Employee.DoesNotExist:
                 pass
 
-        organization = None
-        organization_id = reservation.data.get('organization_id')
-        if organization_id:
+        department = None
+        department_id = reservation.data.get('department_id')
+        if department_id:
             try:
                 from app.models import Department
-                organization = Department.objects.get(id=organization_id)
+                department = Department.objects.get(id=department_id)
             except Department.DoesNotExist:
                 pass
 
@@ -185,7 +185,7 @@ class EmployeeReservationHelper:
             'employee': employee,
             'name': reservation.data.get('name'),
             'email': reservation.data.get('email'),
-            'organization': organization,
+            'department': department,
             'scheduled_date': reservation.scheduled_date,
             'status': reservation.status,
         }

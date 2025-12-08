@@ -36,7 +36,7 @@ class Command(BaseCommand):
             help='作成するコメント数（デフォルト: 20）',
         )
         parser.add_argument(
-            '--organizations',
+            '--departments',
             type=int,
             default=10,
             help='作成する組織数（デフォルト: 10）',
@@ -60,17 +60,17 @@ class Command(BaseCommand):
         num_users = options['users']
         num_articles = options['articles']
         num_comments = options['comments']
-        num_organizations = options['organizations']
+        num_departments = options['departments']
         num_employees = options['employees']
 
         self.stdout.write('初期データを投入しています...')
 
         # サンプル組織を作成
-        self.stdout.write(f'{num_organizations}件の組織を作成しています...')
+        self.stdout.write(f'{num_departments}件の組織を作成しています...')
         departments = []
 
         # ルート組織を作成
-        root_orgs_count = max(2, num_organizations // 5)
+        root_orgs_count = max(2, num_departments // 5)
         for _ in range(root_orgs_count):
             dept = Department.objects.create(
                 name=fake.company(),
@@ -79,7 +79,7 @@ class Command(BaseCommand):
             departments.append(dept)
 
         # 子組織を作成
-        remaining_orgs = num_organizations - root_orgs_count
+        remaining_orgs = num_departments - root_orgs_count
         for _ in range(remaining_orgs):
             parent_dept = fake.random_element(departments)
             dept = Department.objects.create(

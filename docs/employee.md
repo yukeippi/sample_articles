@@ -21,14 +21,14 @@
 | updated_at | TIMESTAMP | NOT NULL | 更新日時 |
 
 **インデックス:**
-- `idx_employee_organization`: (department_id)
+- `idx_employee_department`: (department_id)
 - `idx_employee_email`: (email)
 - `idx_employee_deleted_at`: (deleted_at)
 
 **制約:**
 - `email`: アプリケーション側でユニーク制約（論理削除されていない社員のみ）
-- `organization`: PROTECT制約（組織の物理削除時、社員が存在する場合削除できない）
-- `organization` が NULL の場合は未所属社員となる
+- `department`: PROTECT制約（組織の物理削除時、社員が存在する場合削除できない）
+- `department` が NULL の場合は未所属社員となる
 
 ## データ例
 
@@ -283,7 +283,7 @@ class EmployeeForm(forms.ModelForm):
 
     class Meta:
         model = Employee
-        fields = ['name', 'email', 'organization']
+        fields = ['name', 'email', 'department']
         widgets = {
             'name': forms.TextInput(
                 attrs={'class': 'form-control', 'placeholder': '氏名を入力'}
@@ -298,7 +298,7 @@ class EmployeeForm(forms.ModelForm):
         labels = {
             'name': '氏名',
             'email': 'メールアドレス',
-            'organization': '所属組織',
+            'department': '所属組織',
         }
 ```
 
@@ -397,7 +397,7 @@ employees = org.employees.all()  # [山田太郎, 田中花子, ...]
 
 org.delete()  # 論理削除を実行
 
-# 所属社員は未所属になる（organization が NULL に設定される）
+# 所属社員は未所属になる（department が NULL に設定される）
 for employee in employees:
     employee.refresh_from_db()
     print(employee.department)  # None（未所属化）
@@ -411,10 +411,10 @@ print(org.is_deleted)  # True
 
 ```python
 # 未所属の社員を取得
-unaffiliated_employees = Employee.objects.filter(organization__isnull=True)
+unaffiliated_employees = Employee.objects.filter(department__isnull=True)
 
 # 所属組織がある社員のみ取得
-affiliated_employees = Employee.objects.filter(organization__isnull=False)
+affiliated_employees = Employee.objects.filter(department__isnull=False)
 ```
 
 **組織と社員を一緒に論理削除:**
@@ -495,7 +495,7 @@ EmployeeReservationHelper.create_reservation(
 
 ### 3. データ整合性
 
-- **論理削除**: 組織が論理削除されると、所属社員の organization は NULL になります
+- **論理削除**: 組織が論理削除されると、所属社員の department は NULL になります
 - **物理削除**: `PROTECT` 制約により、所属社員が存在する場合は組織を物理削除できません
 - 論理削除されたレコードもテーブルに残るため、定期的なクリーンアップが推奨されます
 

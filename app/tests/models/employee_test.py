@@ -10,7 +10,7 @@ from app.models import Employee, Department
 from app.tests.factories import (
     EmployeeFactory,
     DepartmentFactory,
-    create_organization_with_employees,
+    create_department_with_employees,
 )
 
 
@@ -18,13 +18,13 @@ from app.tests.factories import (
 class TestEmployeeModel:
     """社員モデルのテスト"""
 
-    def test_create_employee_with_organization(self):
+    def test_create_employee_with_department(self):
         """組織に所属する社員の作成"""
         org = DepartmentFactory.create(name='営業部')
         employee = EmployeeFactory.create(
             name='山田太郎',
             email='yamada@example.com',
-            organization=org,
+            department=org,
         )
 
         assert employee.name == '山田太郎'
@@ -32,12 +32,12 @@ class TestEmployeeModel:
         assert employee.department == org
         assert employee in org.employees.all()
 
-    def test_create_employee_without_organization(self):
+    def test_create_employee_without_department(self):
         """未所属社員の作成"""
         employee = EmployeeFactory.create(
             name='田中花子',
             email='tanaka@example.com',
-            organization=None,
+            department=None,
         )
 
         assert employee.name == '田中花子'
@@ -138,9 +138,9 @@ class TestEmployeeSoftDelete:
 class TestEmployeeDepartmentRelationship:
     """社員と組織の関連のテスト"""
 
-    def test_organization_soft_delete_sets_employee_organization_to_null(self):
+    def test_department_soft_delete_sets_employee_department_to_null(self):
         """組織の論理削除時に社員の組織がNULLになる"""
-        org, employees = create_organization_with_employees(num_employees=3)
+        org, employees = create_department_with_employees(num_employees=3)
 
         # 組織を論理削除
         org.delete()
@@ -150,11 +150,11 @@ class TestEmployeeDepartmentRelationship:
             employee.refresh_from_db()
             assert employee.department is None
 
-    def test_employee_can_be_transferred_to_another_organization(self):
+    def test_employee_can_be_transferred_to_another_department(self):
         """社員を他の組織に異動できる"""
         org1 = DepartmentFactory.create(name='営業部')
         org2 = DepartmentFactory.create(name='開発部')
-        employee = EmployeeFactory.create(organization=org1)
+        employee = EmployeeFactory.create(department=org1)
 
         # 異動
         employee.department = org2
@@ -168,7 +168,7 @@ class TestEmployeeDepartmentRelationship:
     def test_employee_can_be_unaffiliated(self):
         """社員を未所属にできる"""
         org = DepartmentFactory.create(name='営業部')
-        employee = EmployeeFactory.create(organization=org)
+        employee = EmployeeFactory.create(department=org)
 
         # 未所属化
         employee.department = None
@@ -180,12 +180,12 @@ class TestEmployeeDepartmentRelationship:
     def test_query_unaffiliated_employees(self):
         """未所属社員の取得"""
         org = DepartmentFactory.create(name='営業部')
-        employee1 = EmployeeFactory.create(organization=org)
-        employee2 = EmployeeFactory.create(organization=None)
-        employee3 = EmployeeFactory.create(organization=None)
+        employee1 = EmployeeFactory.create(department=org)
+        employee2 = EmployeeFactory.create(department=None)
+        employee3 = EmployeeFactory.create(department=None)
 
         # 未所属社員を取得
-        unaffiliated = Employee.objects.filter(organization__isnull=True)
+        unaffiliated = Employee.objects.filter(department__isnull=True)
 
         assert employee2 in unaffiliated
         assert employee3 in unaffiliated
@@ -194,29 +194,29 @@ class TestEmployeeDepartmentRelationship:
     def test_query_affiliated_employees(self):
         """所属社員の取得"""
         org = DepartmentFactory.create(name='営業部')
-        employee1 = EmployeeFactory.create(organization=org)
-        employee2 = EmployeeFactory.create(organization=None)
+        employee1 = EmployeeFactory.create(department=org)
+        employee2 = EmployeeFactory.create(department=None)
 
         # 所属社員を取得
-        affiliated = Employee.objects.filter(organization__isnull=False)
+        affiliated = Employee.objects.filter(department__isnull=False)
 
         assert employee1 in affiliated
         assert employee2 not in affiliated
 
-    def test_organization_hard_delete_protected_by_employees(self):
+    def test_department_hard_delete_protected_by_employees(self):
         """社員が存在する組織は物理削除できない（PROTECT制約）"""
         org = DepartmentFactory.create(name='営業部')
-        EmployeeFactory.create(organization=org)
+        EmployeeFactory.create(department=org)
 
         # 物理削除しようとするとProtectedError
         with pytest.raises(ProtectedError):
             org.hard_delete()
 
-    def test_organization_hard_delete_after_moving_employees(self):
+    def test_department_hard_delete_after_moving_employees(self):
         """社員を移動後に組織を物理削除できる"""
         org1 = DepartmentFactory.create(name='営業部')
         org2 = DepartmentFactory.create(name='開発部')
-        employee = EmployeeFactory.create(organization=org1)
+        employee = EmployeeFactory.create(department=org1)
 
         # 社員を別の組織に移動
         employee.department = org2
@@ -229,10 +229,10 @@ class TestEmployeeDepartmentRelationship:
         employee.refresh_from_db()
         assert employee.department == org2
 
-    def test_organization_hard_delete_after_setting_employees_to_null(self):
+    def test_department_hard_delete_after_setting_employees_to_null(self):
         """社員を未所属化後に組織を物理削除できる"""
         org = DepartmentFactory.create(name='営業部')
-        employee = EmployeeFactory.create(organization=org)
+        employee = EmployeeFactory.create(department=org)
 
         # 社員を未所属化
         employee.department = None
@@ -286,17 +286,17 @@ class TestEmployeeQueries:
         assert employee1 in deleted_employees
         assert employee2 not in deleted_employees
 
-    def test_filter_by_organization(self):
+    def test_filter_by_department(self):
         """組織で社員をフィルタリング"""
         org1 = DepartmentFactory.create(name='営業部')
         org2 = DepartmentFactory.create(name='開発部')
 
-        employee1 = EmployeeFactory.create(organization=org1)
-        employee2 = EmployeeFactory.create(organization=org1)
-        employee3 = EmployeeFactory.create(organization=org2)
+        employee1 = EmployeeFactory.create(department=org1)
+        employee2 = EmployeeFactory.create(department=org1)
+        employee3 = EmployeeFactory.create(department=org2)
 
         # 営業部の社員を取得
-        sales_employees = Employee.objects.filter(organization=org1)
+        sales_employees = Employee.objects.filter(department=org1)
 
         assert employee1 in sales_employees
         assert employee2 in sales_employees
@@ -307,11 +307,11 @@ class TestEmployeeQueries:
 class TestEmployeeDepartmentDeleteScenarios:
     """社員と組織の削除シナリオのテスト"""
 
-    def test_scenario_organization_deleted_employees_become_unaffiliated(self):
+    def test_scenario_department_deleted_employees_become_unaffiliated(self):
         """シナリオ: 組織削除時に社員が未所属になる"""
         # 準備: 組織と社員を作成
         org = DepartmentFactory.create(name='営業部')
-        employees = EmployeeFactory.create_batch(5, organization=org)
+        employees = EmployeeFactory.create_batch(5, department=org)
 
         # 実行: 組織を論理削除
         org.delete()
@@ -331,8 +331,8 @@ class TestEmployeeDepartmentDeleteScenarios:
         child = DepartmentFactory.create(name='営業一課', parent=parent)
 
         # 各組織に社員を追加
-        parent_employees = EmployeeFactory.create_batch(2, organization=parent)
-        child_employees = EmployeeFactory.create_batch(2, organization=child)
+        parent_employees = EmployeeFactory.create_batch(2, department=parent)
+        child_employees = EmployeeFactory.create_batch(2, department=child)
 
         # 実行: 親組織を論理削除
         parent.delete()
@@ -351,11 +351,11 @@ class TestEmployeeDepartmentDeleteScenarios:
         child.refresh_from_db()
         assert child.parent is None
 
-    def test_scenario_delete_organization_then_restore(self):
+    def test_scenario_delete_department_then_restore(self):
         """シナリオ: 組織削除後に復元しても社員は未所属のまま"""
         # 準備
         org = DepartmentFactory.create(name='営業部')
-        employees = EmployeeFactory.create_batch(3, organization=org)
+        employees = EmployeeFactory.create_batch(3, department=org)
 
         # 実行: 組織を論理削除
         org.delete()

@@ -55,8 +55,8 @@
                 <td>{{ reservation.display_name|default:"—" }}</td>
                 <td>{{ reservation.display_email|default:"—" }}</td>
                 <td>
-                  {% if reservation.display_organization %}
-                    {{ reservation.display_organization.name }}
+                  {% if reservation.display_department %}
+                    {{ reservation.display_department.name }}
                   {% else %}
                     —
                   {% endif %}
