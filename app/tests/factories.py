@@ -7,7 +7,7 @@ from django.contrib.auth.models import User
 from faker import Faker
 from model_bakery import baker
 
-from app.models import Article, Comment, Employee, Organization
+from app.models import Article, Comment, Employee, Department
 
 fake = Faker('ja_JP')
 
@@ -92,7 +92,7 @@ def create_article_with_comments(num_comments=3):
     return article
 
 
-class OrganizationFactory:
+class DepartmentFactory:
     """組織ファクトリ"""
 
     @staticmethod
@@ -103,41 +103,41 @@ class OrganizationFactory:
             'parent': parent,
         }
         defaults.update(kwargs)
-        return baker.make(Organization, **defaults)
+        return baker.make(Department, **defaults)
 
     @staticmethod
     def create_batch(size=5, parent=None, **kwargs):
         """複数の組織を作成"""
-        return [OrganizationFactory.create(parent=parent, **kwargs) for _ in range(size)]
+        return [DepartmentFactory.create(parent=parent, **kwargs) for _ in range(size)]
 
 
 class EmployeeFactory:
     """社員ファクトリ"""
 
     @staticmethod
-    def create(organization=None, **kwargs):
+    def create(department=None, **kwargs):
         """社員を作成"""
         defaults = {
             'name': fake.name(),
             'email': fake.email(),
-            'organization': organization,
+            'department': department,
         }
         defaults.update(kwargs)
         return baker.make(Employee, **defaults)
 
     @staticmethod
-    def create_batch(size=5, organization=None, **kwargs):
+    def create_batch(size=5, department=None, **kwargs):
         """複数の社員を作成"""
-        return [EmployeeFactory.create(organization=organization, **kwargs) for _ in range(size)]
+        return [EmployeeFactory.create(department=department, **kwargs) for _ in range(size)]
 
 
-def create_organization_hierarchy():
+def create_department_hierarchy():
     """組織階層を作成（親組織→子組織→孫組織）"""
-    parent = OrganizationFactory.create(name='本社')
-    child1 = OrganizationFactory.create(name='営業部', parent=parent)
-    child2 = OrganizationFactory.create(name='開発部', parent=parent)
-    grandchild1 = OrganizationFactory.create(name='営業一課', parent=child1)
-    grandchild2 = OrganizationFactory.create(name='営業二課', parent=child1)
+    parent = DepartmentFactory.create(name='本社')
+    child1 = DepartmentFactory.create(name='営業部', parent=parent)
+    child2 = DepartmentFactory.create(name='開発部', parent=parent)
+    grandchild1 = DepartmentFactory.create(name='営業一課', parent=child1)
+    grandchild2 = DepartmentFactory.create(name='営業二課', parent=child1)
 
     return {
         'parent': parent,
@@ -146,8 +146,8 @@ def create_organization_hierarchy():
     }
 
 
-def create_organization_with_employees(num_employees=3):
+def create_department_with_employees(num_employees=3):
     """社員付きの組織を作成"""
-    organization = OrganizationFactory.create()
-    employees = EmployeeFactory.create_batch(size=num_employees, organization=organization)
-    return organization, employees
+    department = DepartmentFactory.create()
+    employees = EmployeeFactory.create_batch(size=num_employees, department=department)
+    return department, employees

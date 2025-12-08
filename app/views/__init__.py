@@ -18,19 +18,19 @@ from app.views.employee import (
     EmployeeReservationUpdateView,
     EmployeeUpdateView,
 )
-from app.views.organization import (
-    OrganizationCreateView,
-    OrganizationDeleteView,
-    OrganizationListView,
-    OrganizationMergeView,
-    OrganizationUpdateView,
+from app.views.department import (
+    DepartmentCreateView,
+    DepartmentDeleteView,
+    DepartmentListView,
+    DepartmentMergeView,
+    DepartmentUpdateView,
 )
 from app.views.reservation import (
-    OrganizationPreviewView,
-    OrganizationReservationCreateView,
-    OrganizationReservationDeleteView,
-    OrganizationReservationListView,
-    OrganizationReservationUpdateView,
+    DepartmentPreviewView,
+    DepartmentReservationCreateView,
+    DepartmentReservationDeleteView,
+    DepartmentReservationListView,
+    DepartmentReservationUpdateView,
 )
 
 __all__ = [
@@ -52,16 +52,16 @@ __all__ = [
     'EmployeeReservationUpdateView',
     'EmployeeReservationDeleteView',
     'EmployeePreviewView',
-    # Organization views
-    'OrganizationListView',
-    'OrganizationCreateView',
-    'OrganizationUpdateView',
-    'OrganizationDeleteView',
-    'OrganizationMergeView',
+    # Department views
+    'DepartmentListView',
+    'DepartmentCreateView',
+    'DepartmentUpdateView',
+    'DepartmentDeleteView',
+    'DepartmentMergeView',
     # Reservation views
-    'OrganizationReservationListView',
-    'OrganizationReservationCreateView',
-    'OrganizationReservationUpdateView',
-    'OrganizationReservationDeleteView',
-    'OrganizationPreviewView',
+    'DepartmentReservationListView',
+    'DepartmentReservationCreateView',
+    'DepartmentReservationUpdateView',
+    'DepartmentReservationDeleteView',
+    'DepartmentPreviewView',
 ]

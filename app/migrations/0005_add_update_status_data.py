@@ -23,7 +23,7 @@ def delete_update_statuses(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('app', '0004_updatestatus_organization_organizationreservation_and_more'),
+        ('app', '0004_updatestatus_department_departmentreservation_and_more'),
     ]
 
     operations = [

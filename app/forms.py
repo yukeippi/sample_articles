@@ -1,6 +1,6 @@
 from django import forms
 
-from app.models import Article, Employee, Organization, Reservation
+from app.models import Article, Employee, Department, Reservation
 
 
 class ArticleForm(forms.ModelForm):
@@ -27,11 +27,11 @@ class ArticleForm(forms.ModelForm):
         }
 
 
-class OrganizationForm(forms.ModelForm):
+class DepartmentForm(forms.ModelForm):
     """組織の作成・編集フォーム"""
 
     class Meta:
-        model = Organization
+        model = Department
         fields = ['name', 'parent']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '組織名を入力'}),
@@ -45,10 +45,10 @@ class OrganizationForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['parent'].required = False
-        self.fields['parent'].queryset = Organization.objects.all()
+        self.fields['parent'].queryset = Department.objects.all()
 
 
-class OrganizationReservationForm(forms.Form):
+class DepartmentReservationForm(forms.Form):
     """組織予約更新フォーム"""
 
     ACTION_CHOICES = [
@@ -58,8 +58,8 @@ class OrganizationReservationForm(forms.Form):
         ('merge', '統合'),
     ]
 
-    organization = forms.ModelChoiceField(
-        queryset=Organization.objects.all(),
+    department = forms.ModelChoiceField(
+        queryset=Department.objects.all(),
         required=False,
         label='対象組織',
         widget=forms.Select(attrs={'class': 'form-select'}),
@@ -76,7 +76,7 @@ class OrganizationReservationForm(forms.Form):
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': '組織名を入力'}),
     )
     parent = forms.ModelChoiceField(
-        queryset=Organization.objects.all(),
+        queryset=Department.objects.all(),
         required=False,
         label='親組織（既存）',
         help_text='既存の組織を親として選択',
@@ -89,8 +89,8 @@ class OrganizationReservationForm(forms.Form):
         help_text='未適用の新規作成予約を親として指定する場合に選択',
         widget=forms.Select(attrs={'class': 'form-select'}),
     )
-    target_organization = forms.ModelChoiceField(
-        queryset=Organization.objects.all(),
+    target_department = forms.ModelChoiceField(
+        queryset=Department.objects.all(),
         required=False,
         label='統合先組織',
         help_text='統合の場合のみ：統合元組織がこの組織に取り込まれます',
@@ -104,8 +104,8 @@ class OrganizationReservationForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # 予約中の組織新規作成予約を parent_reservation の選択肢に設定
-        from app.utils.organization_reservation import OrganizationReservationHelper
-        pending_reservations = OrganizationReservationHelper.get_pending_reservations()
+        from app.utils.department_reservation import DepartmentReservationHelper
+        pending_reservations = DepartmentReservationHelper.get_pending_reservations()
         create_reservations = pending_reservations.filter(action=Reservation.ACTION_CREATE)
 
         # 選択肢をわかりやすく表示
@@ -117,29 +117,29 @@ class OrganizationReservationForm(forms.Form):
     def clean(self):
         cleaned_data = super().clean()
         action = cleaned_data.get('action')
-        organization = cleaned_data.get('organization')
+        department = cleaned_data.get('department')
         name = cleaned_data.get('name')
         parent = cleaned_data.get('parent')
         parent_reservation = cleaned_data.get('parent_reservation')
-        target_organization = cleaned_data.get('target_organization')
+        target_department = cleaned_data.get('target_department')
 
         if action == 'create':
             if not name:
                 raise forms.ValidationError('新規作成の場合、組織名は必須です。')
-            if organization:
+            if department:
                 raise forms.ValidationError('新規作成の場合、対象組織は指定できません。')
         elif action in ['update', 'delete']:
-            if not organization:
+            if not department:
                 raise forms.ValidationError('更新/削除の場合、対象組織は必須です。')
         elif action == 'merge':
-            if not organization:
+            if not department:
                 raise forms.ValidationError('統合の場合、統合元組織は必須です。')
-            if not target_organization:
+            if not target_department:
                 raise forms.ValidationError('統合の場合、統合先組織は必須です。')
-            if organization == target_organization:
+            if department == target_department:
                 raise forms.ValidationError('統合元と統合先に同じ組織を指定することはできません。')
             # 統合先が統合元の子孫でないかチェック
-            if target_organization in organization.get_descendants():
+            if target_department in department.get_descendants():
                 raise forms.ValidationError('統合元の子孫組織を統合先に指定することはできません。')
 
         # 親組織と親予約の両方が指定されている場合はエラー
@@ -154,30 +154,30 @@ class EmployeeForm(forms.ModelForm):
 
     class Meta:
         model = Employee
-        fields = ['name', 'email', 'organization']
+        fields = ['name', 'email', 'department']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '氏名を入力'}),
             'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'メールアドレスを入力'}),
-            'organization': forms.Select(attrs={'class': 'form-select'}),
+            'department': forms.Select(attrs={'class': 'form-select'}),
         }
         labels = {
             'name': '氏名',
             'email': 'メールアドレス',
-            'organization': '所属組織',
+            'department': '所属組織',
         }
 
 
-class OrganizationMergeForm(forms.Form):
+class DepartmentMergeForm(forms.Form):
     """組織統合フォーム"""
 
-    source_organization = forms.ModelChoiceField(
-        queryset=Organization.objects.all(),
+    source_department = forms.ModelChoiceField(
+        queryset=Department.objects.all(),
         label='統合元組織',
         help_text='この組織が統合先組織に取り込まれます',
         widget=forms.Select(attrs={'class': 'form-select'}),
     )
-    target_organization = forms.ModelChoiceField(
-        queryset=Organization.objects.all(),
+    target_department = forms.ModelChoiceField(
+        queryset=Department.objects.all(),
         label='統合先組織',
         help_text='統合元組織の社員と子組織がこの組織に移動します',
         widget=forms.Select(attrs={'class': 'form-select'}),
@@ -185,13 +185,13 @@ class OrganizationMergeForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['source_organization'].queryset = Organization.objects.all()
-        self.fields['target_organization'].queryset = Organization.objects.all()
+        self.fields['source_department'].queryset = Department.objects.all()
+        self.fields['target_department'].queryset = Department.objects.all()
 
     def clean(self):
         cleaned_data = super().clean()
-        source = cleaned_data.get('source_organization')
-        target = cleaned_data.get('target_organization')
+        source = cleaned_data.get('source_department')
+        target = cleaned_data.get('target_department')
 
         if source and target:
             # 同じ組織を選択していないかチェック
@@ -240,8 +240,8 @@ class EmployeeReservationForm(forms.Form):
         label='メールアドレス',
         widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'メールアドレスを入力'}),
     )
-    organization = forms.ModelChoiceField(
-        queryset=Organization.objects.all(),
+    department = forms.ModelChoiceField(
+        queryset=Department.objects.all(),
         required=False,
         label='所属組織',
         widget=forms.Select(attrs={'class': 'form-select'}),

@@ -12,8 +12,8 @@ class Employee(TimestampedModel, SoftDeleteModel):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, verbose_name='ID')
     name = models.CharField(max_length=200, verbose_name='氏名')
     email = models.EmailField(verbose_name='メールアドレス')
-    organization = models.ForeignKey(
-        'Organization',
+    department = models.ForeignKey(
+        'Department',
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -26,7 +26,7 @@ class Employee(TimestampedModel, SoftDeleteModel):
         verbose_name_plural = '社員'
         ordering = ['name']
         indexes = [
-            models.Index(fields=['organization']),
+            models.Index(fields=['department']),
             models.Index(fields=['email']),
         ]
 

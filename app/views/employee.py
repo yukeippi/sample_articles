@@ -188,8 +188,8 @@ class EmployeePreviewView(LoginRequiredMixin, View):
                 'id': str(emp.id),
                 'name': emp.name,
                 'email': emp.email,
-                'organization_id': str(emp.organization.id) if emp.organization else None,
-                'organization_name': emp.organization.name if emp.organization else None,
+                'organization_id': str(emp.department.id) if emp.department else None,
+                'organization_name': emp.department.name if emp.department else None,
             }
 
         # プレビュー日付までの予約更新を適用（メモリ上のみ）

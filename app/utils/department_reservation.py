@@ -6,23 +6,23 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.utils import timezone
 
-from app.models import Organization, Reservation, UpdateStatus
+from app.models import Department, Reservation, UpdateStatus
 
 
-class OrganizationReservationHelper:
+class DepartmentReservationHelper:
     """組織予約更新のヘルパークラス"""
 
     @staticmethod
     def get_content_type():
         """組織のContentTypeを取得"""
-        return ContentType.objects.get_for_model(Organization)
+        return ContentType.objects.get_for_model(Department)
 
     @staticmethod
-    def validate_hierarchy(organization_id, parent_id):
+    def validate_hierarchy(department_id, parent_id):
         """組織階層の妥当性を検証
 
         Args:
-            organization_id: 対象組織のID（新規作成の場合はNone）
+            department_id: 対象組織のID（新規作成の場合はNone）
             parent_id: 親組織のID
 
         Raises:
@@ -31,44 +31,44 @@ class OrganizationReservationHelper:
         if not parent_id:
             return  # 親なし（ルート組織）は常に有効
 
-        if organization_id and str(organization_id) == str(parent_id):
+        if department_id and str(department_id) == str(parent_id):
             raise ValueError('組織は自分自身を親にできません')
 
         # 親組織が存在し、その子孫に対象組織が含まれていないか確認
-        if organization_id:
+        if department_id:
             try:
-                org = Organization.objects.get(id=organization_id)
-                parent = Organization.objects.get(id=parent_id)
+                dept = Department.objects.get(id=department_id)
+                parent = Department.objects.get(id=parent_id)
 
                 # 親組織の先祖に対象組織が含まれていないか確認
                 ancestors = parent.get_ancestors()
-                if org in ancestors:
+                if dept in ancestors:
                     raise ValueError('循環参照になる親組織は指定できません')
-            except Organization.DoesNotExist:
+            except Department.DoesNotExist:
                 pass  # 新規作成の場合はチェック不要
 
     @staticmethod
-    def create_reservation(action, scheduled_date, organization=None, name=None, parent=None, parent_reservation=None, target_organization=None):
+    def create_reservation(action, scheduled_date, department=None, name=None, parent=None, parent_reservation=None, target_department=None):
         """組織の予約更新を作成
 
         Args:
             action: 操作種別 ('create', 'update', 'delete', 'merge')
             scheduled_date: 適用予定日
-            organization: 対象組織（新規作成の場合はNone、統合の場合は統合元組織）
+            department: 対象組織（新規作成の場合はNone、統合の場合は統合元組織）
             name: 組織名（新規作成/更新の場合）
             parent: 親組織（既存の組織）
             parent_reservation: 親組織（未来の予約更新）
-            target_organization: 統合先組織（統合の場合のみ）
+            target_department: 統合先組織（統合の場合のみ）
 
         Raises:
             ValueError: 階層が不正な場合、または循環参照が検出された場合
         """
-        content_type = OrganizationReservationHelper.get_content_type()
+        content_type = DepartmentReservationHelper.get_content_type()
 
         # 階層検証（既存の親組織が指定されている場合）
         if parent:
-            OrganizationReservationHelper.validate_hierarchy(
-                organization_id=organization.id if organization else None,
+            DepartmentReservationHelper.validate_hierarchy(
+                department_id=department.id if department else None,
                 parent_id=parent.id
             )
 
@@ -83,18 +83,18 @@ class OrganizationReservationHelper:
 
         # 統合の場合は統合先組織を保存
         if action == Reservation.ACTION_MERGE:
-            if not organization:
+            if not department:
                 raise ValueError('統合元組織を指定してください')
-            if not target_organization:
+            if not target_department:
                 raise ValueError('統合先組織を指定してください')
-            data['target_organization_id'] = str(target_organization.id)
+            data['target_organization_id'] = str(target_department.id)
 
         # parent_reservationが指定されている場合は、depends_onに設定
         depends_on = parent_reservation if parent_reservation else None
 
         reservation = Reservation.objects.create(
             content_type=content_type,
-            object_id=organization.id if organization else None,
+            object_id=department.id if department else None,
             action=action,
             data=data,
             scheduled_date=scheduled_date,
@@ -120,12 +120,12 @@ class OrganizationReservationHelper:
             reservation: Reservationオブジェクト
 
         Returns:
-            適用後のOrganizationオブジェクト
+            適用後のDepartmentオブジェクト
         """
         if reservation.status_id != UpdateStatus.PENDING:
             raise ValueError('適用できるのは予約中のレコードのみです')
 
-        if reservation.content_type != OrganizationReservationHelper.get_content_type():
+        if reservation.content_type != DepartmentReservationHelper.get_content_type():
             raise ValueError('組織以外の予約更新は適用できません')
 
         with transaction.atomic():
@@ -136,70 +136,70 @@ class OrganizationReservationHelper:
 
                 # 既存の親組織が指定されている場合
                 if parent_id:
-                    parent = Organization.objects.get(id=parent_id)
+                    parent = Department.objects.get(id=parent_id)
                 # depends_onで未来の組織が親として指定されている場合
                 elif reservation.depends_on and reservation.depends_on.applied_object_id:
-                    parent = Organization.objects.get(id=reservation.depends_on.applied_object_id)
+                    parent = Department.objects.get(id=reservation.depends_on.applied_object_id)
 
-                org = Organization.objects.create(
+                dept = Department.objects.create(
                     id=uuid7(),
                     name=reservation.data['name'],
                     parent=parent,
                 )
-                reservation.applied_object_id = org.id
+                reservation.applied_object_id = dept.id
 
             elif reservation.action == Reservation.ACTION_UPDATE:
                 # 更新
                 if not reservation.object_id:
                     raise ValueError('更新対象の組織が指定されていません')
 
-                org = Organization.objects.get(id=reservation.object_id)
+                dept = Department.objects.get(id=reservation.object_id)
 
                 if 'name' in reservation.data:
-                    org.name = reservation.data['name']
+                    dept.name = reservation.data['name']
 
                 if 'parent_id' in reservation.data:
                     parent_id = reservation.data['parent_id']
                     parent = None
                     if parent_id:
-                        parent = Organization.objects.get(id=parent_id)
+                        parent = Department.objects.get(id=parent_id)
                     # depends_onで未来の組織が親として指定されている場合
                     elif reservation.depends_on and reservation.depends_on.applied_object_id:
-                        parent = Organization.objects.get(id=reservation.depends_on.applied_object_id)
-                    org.parent = parent
+                        parent = Department.objects.get(id=reservation.depends_on.applied_object_id)
+                    dept.parent = parent
 
-                org.save()
+                dept.save()
 
             elif reservation.action == Reservation.ACTION_DELETE:
                 # 削除
                 if not reservation.object_id:
                     raise ValueError('削除対象の組織が指定されていません')
 
-                org = Organization.objects.get(id=reservation.object_id)
-                org.delete()
+                dept = Department.objects.get(id=reservation.object_id)
+                dept.delete()
 
             elif reservation.action == Reservation.ACTION_MERGE:
                 # 統合
                 if not reservation.object_id:
                     raise ValueError('統合元組織が指定されていません')
 
-                target_organization_id = reservation.data.get('target_organization_id')
-                if not target_organization_id:
+                target_department_id = reservation.data.get('target_organization_id')
+                if not target_department_id:
                     raise ValueError('統合先組織が指定されていません')
 
-                source_org = Organization.objects.get(id=reservation.object_id)
-                target_org = Organization.objects.get(id=target_organization_id)
+                source_dept = Department.objects.get(id=reservation.object_id)
+                target_dept = Department.objects.get(id=target_department_id)
 
                 # 統合実行
-                source_org.merge_into(target_org)
-                org = None  # 統合後は統合元組織は削除される
+                source_dept.merge_into(target_dept)
+                dept = None  # 統合後は統合元組織は削除される
 
             # ステータスを適用済みに変更
             reservation.status_id = UpdateStatus.APPLIED
             reservation.applied_at = timezone.now()
             reservation.save()
 
-            return org if reservation.action not in [Reservation.ACTION_DELETE, Reservation.ACTION_MERGE] else None
+            return dept if reservation.action not in [Reservation.ACTION_DELETE, Reservation.ACTION_MERGE] else None
 
     @staticmethod
     def get_pending_reservations(scheduled_date=None):
@@ -208,7 +208,7 @@ class OrganizationReservationHelper:
         Args:
             scheduled_date: 指定日以前の予約のみ取得（Noneの場合は全て）
         """
-        content_type = OrganizationReservationHelper.get_content_type()
+        content_type = DepartmentReservationHelper.get_content_type()
         queryset = Reservation.objects.filter(
             content_type=content_type,
             status_id=UpdateStatus.PENDING,
@@ -228,45 +228,45 @@ class OrganizationReservationHelper:
                 'id': UUID,
                 'action': str,
                 'action_display': str,
-                'organization': Organization or None,
+                'department': Department or None,
                 'name': str,
-                'parent': Organization or None,
-                'target_organization': Organization or None (統合の場合のみ),
+                'parent': Department or None,
+                'target_department': Department or None (統合の場合のみ),
                 'scheduled_date': date,
                 'status': str,
             }
         """
-        organization = None
+        department = None
         if reservation.object_id:
             try:
-                organization = Organization.objects.get(id=reservation.object_id)
-            except Organization.DoesNotExist:
+                department = Department.objects.get(id=reservation.object_id)
+            except Department.DoesNotExist:
                 pass
 
         parent = None
         parent_id = reservation.data.get('parent_id')
         if parent_id:
             try:
-                parent = Organization.objects.get(id=parent_id)
-            except Organization.DoesNotExist:
+                parent = Department.objects.get(id=parent_id)
+            except Department.DoesNotExist:
                 pass
 
-        target_organization = None
-        target_organization_id = reservation.data.get('target_organization_id')
-        if target_organization_id:
+        target_department = None
+        target_department_id = reservation.data.get('target_organization_id')
+        if target_department_id:
             try:
-                target_organization = Organization.objects.get(id=target_organization_id)
-            except Organization.DoesNotExist:
+                target_department = Department.objects.get(id=target_department_id)
+            except Department.DoesNotExist:
                 pass
 
         return {
             'id': reservation.id,
             'action': reservation.action,
             'action_display': reservation.get_action_display(),
-            'organization': organization,
+            'department': department,
             'name': reservation.data.get('name'),
             'parent': parent,
-            'target_organization': target_organization,
+            'target_department': target_department,
             'scheduled_date': reservation.scheduled_date,
             'status': reservation.status,
             'depends_on': reservation.depends_on,

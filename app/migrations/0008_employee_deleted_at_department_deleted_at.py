@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
             field=models.DateTimeField(blank=True, db_index=True, null=True, verbose_name='削除日時'),
         ),
         migrations.AddField(
-            model_name='organization',
+            model_name='department',
             name='deleted_at',
             field=models.DateTimeField(blank=True, db_index=True, null=True, verbose_name='削除日時'),
         ),

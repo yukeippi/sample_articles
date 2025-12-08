@@ -54,12 +54,12 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name='employee',
-            name='organization',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='employees', to='app.organization', verbose_name='所属組織'),
+            name='department',
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='employees', to='app.department', verbose_name='所属組織'),
         ),
         migrations.AddIndex(
             model_name='employee',
-            index=models.Index(fields=['organization'], name='app_employe_organiz_8f818c_idx'),
+            index=models.Index(fields=['department'], name='app_employe_departme_8f818c_idx'),
         ),
         migrations.AddIndex(
             model_name='employee',

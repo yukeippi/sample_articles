@@ -5,50 +5,50 @@ import django.db.models.deletion
 from uuid import uuid7
 
 
-def migrate_organization_reservations(apps, schema_editor):
-    """既存のOrganizationReservationデータを新しいReservationモデルに移行"""
-    OrganizationReservation = apps.get_model('app', 'OrganizationReservation')
+def migrate_department_reservations(apps, schema_editor):
+    """既存のDepartmentReservationデータを新しいReservationモデルに移行"""
+    DepartmentReservation = apps.get_model('app', 'DepartmentReservation')
     Reservation = apps.get_model('app', 'Reservation')
-    Organization = apps.get_model('app', 'Organization')
+    Department = apps.get_model('app', 'Department')
     ContentType = apps.get_model('contenttypes', 'ContentType')
 
-    # OrganizationのContentTypeを取得
-    content_type = ContentType.objects.get_for_model(Organization)
+    # DepartmentのContentTypeを取得
+    content_type = ContentType.objects.get_for_model(Department)
 
-    # 既存のOrganizationReservationを新しいReservationに変換
-    for org_res in OrganizationReservation.objects.all():
+    # 既存のDepartmentReservationを新しいReservationに変換
+    for dept_res in DepartmentReservation.objects.all():
         data = {}
-        if org_res.name:
-            data['name'] = org_res.name
-        if org_res.parent_id:
-            data['parent_id'] = str(org_res.parent_id)
+        if dept_res.name:
+            data['name'] = dept_res.name
+        if dept_res.parent_id:
+            data['parent_id'] = str(dept_res.parent_id)
 
         Reservation.objects.create(
-            id=org_res.id,
+            id=dept_res.id,
             content_type=content_type,
-            object_id=org_res.organization_id,
-            action=org_res.action,
+            object_id=dept_res.department_id,
+            action=dept_res.action,
             data=data,
-            scheduled_date=org_res.scheduled_date,
-            status_id=org_res.status_id,
-            created_at=org_res.created_at,
-            updated_at=org_res.updated_at,
+            scheduled_date=dept_res.scheduled_date,
+            status_id=dept_res.status_id,
+            created_at=dept_res.created_at,
+            updated_at=dept_res.updated_at,
         )
 
 
 def reverse_migration(apps, schema_editor):
     """ロールバック用（Reservationからデータを戻す）"""
-    OrganizationReservation = apps.get_model('app', 'OrganizationReservation')
+    DepartmentReservation = apps.get_model('app', 'DepartmentReservation')
     Reservation = apps.get_model('app', 'Reservation')
-    Organization = apps.get_model('app', 'Organization')
+    Department = apps.get_model('app', 'Department')
     ContentType = apps.get_model('contenttypes', 'ContentType')
 
-    content_type = ContentType.objects.get_for_model(Organization)
+    content_type = ContentType.objects.get_for_model(Department)
 
     for reservation in Reservation.objects.filter(content_type=content_type):
-        OrganizationReservation.objects.create(
+        DepartmentReservation.objects.create(
             id=reservation.id,
-            organization_id=reservation.object_id,
+            department_id=reservation.object_id,
             action=reservation.action,
             name=reservation.data.get('name'),
             parent_id=reservation.data.get('parent_id'),
@@ -103,9 +103,9 @@ class Migration(migrations.Migration):
             index=models.Index(fields=['depends_on'], name='app_reserva_depends_a1b2c3_idx'),
         ),
         # データ移行
-        migrations.RunPython(migrate_organization_reservations, reverse_migration),
-        # 古いOrganizationReservationモデルを削除
+        migrations.RunPython(migrate_department_reservations, reverse_migration),
+        # 古いDepartmentReservationモデルを削除
         migrations.DeleteModel(
-            name='OrganizationReservation',
+            name='DepartmentReservation',
         ),
     ]

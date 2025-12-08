@@ -18,7 +18,7 @@ class EmployeeReservationHelper:
         return ContentType.objects.get_for_model(Employee)
 
     @staticmethod
-    def create_reservation(action, scheduled_date, employee=None, name=None, email=None, organization=None):
+    def create_reservation(action, scheduled_date, employee=None, name=None, email=None, department=None):
         """社員の予約更新を作成
 
         Args:
@@ -27,7 +27,7 @@ class EmployeeReservationHelper:
             employee: 対象社員（新規作成の場合はNone）
             name: 氏名（新規作成/更新の場合）
             email: メールアドレス（新規作成/更新の場合）
-            organization: 所属組織
+            department: 所属組織
 
         Raises:
             ValueError: 入力が不正な場合
@@ -39,9 +39,9 @@ class EmployeeReservationHelper:
             data['name'] = name
         if email:
             data['email'] = email
-        if organization:
-            data['organization_id'] = str(organization.id)
-        elif organization is None and action in [Reservation.ACTION_CREATE, Reservation.ACTION_UPDATE]:
+        if department:
+            data['organization_id'] = str(department.id)
+        elif department is None and action in [Reservation.ACTION_CREATE, Reservation.ACTION_UPDATE]:
             # 組織をNullに設定する場合
             data['organization_id'] = None
 
@@ -78,8 +78,8 @@ class EmployeeReservationHelper:
                 organization_id = reservation.data.get('organization_id')
                 organization = None
                 if organization_id:
-                    from app.models import Organization
-                    organization = Organization.objects.get(id=organization_id)
+                    from app.models import Department
+                    organization = Department.objects.get(id=organization_id)
 
                 employee = Employee.objects.create(
                     id=uuid7(),
@@ -105,10 +105,10 @@ class EmployeeReservationHelper:
                 if 'organization_id' in reservation.data:
                     organization_id = reservation.data['organization_id']
                     if organization_id:
-                        from app.models import Organization
-                        employee.organization = Organization.objects.get(id=organization_id)
+                        from app.models import Department
+                        employee.department = Department.objects.get(id=organization_id)
                     else:
-                        employee.organization = None
+                        employee.department = None
 
                 employee.save()
 
@@ -157,7 +157,7 @@ class EmployeeReservationHelper:
                 'employee': Employee or None,
                 'name': str,
                 'email': str,
-                'organization': Organization or None,
+                'organization': Department or None,
                 'scheduled_date': date,
                 'status': str,
             }
@@ -173,9 +173,9 @@ class EmployeeReservationHelper:
         organization_id = reservation.data.get('organization_id')
         if organization_id:
             try:
-                from app.models import Organization
-                organization = Organization.objects.get(id=organization_id)
-            except Organization.DoesNotExist:
+                from app.models import Department
+                organization = Department.objects.get(id=organization_id)
+            except Department.DoesNotExist:
                 pass
 
         return {

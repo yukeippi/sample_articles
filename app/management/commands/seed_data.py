@@ -3,7 +3,7 @@ from django.core.management.base import BaseCommand
 from faker import Faker
 from model_bakery import baker
 
-from app.models import Article, Comment, Employee, Organization
+from app.models import Article, Comment, Employee, Department
 
 fake = Faker('ja_JP')
 
@@ -54,7 +54,7 @@ class Command(BaseCommand):
             Comment.objects.all().delete()
             Article.objects.all().delete()
             Employee.objects.all().delete()
-            Organization.objects.all().delete()
+            Department.objects.all().delete()
             User.objects.filter(is_superuser=False).delete()
 
         num_users = options['users']
@@ -67,26 +67,26 @@ class Command(BaseCommand):
 
         # サンプル組織を作成
         self.stdout.write(f'{num_organizations}件の組織を作成しています...')
-        organizations = []
+        departments = []
 
         # ルート組織を作成
         root_orgs_count = max(2, num_organizations // 5)
         for _ in range(root_orgs_count):
-            org = Organization.objects.create(
+            dept = Department.objects.create(
                 name=fake.company(),
                 parent=None,
             )
-            organizations.append(org)
+            departments.append(dept)
 
         # 子組織を作成
         remaining_orgs = num_organizations - root_orgs_count
         for _ in range(remaining_orgs):
-            parent_org = fake.random_element(organizations)
-            org = Organization.objects.create(
+            parent_dept = fake.random_element(departments)
+            dept = Department.objects.create(
                 name=f'{fake.company()} {fake.random_element(["部", "課", "チーム", "グループ"])}',
-                parent=parent_org,
+                parent=parent_dept,
             )
-            organizations.append(org)
+            departments.append(dept)
 
         # サンプルユーザーを作成
         self.stdout.write(f'{num_users}人のユーザーを作成しています...')
@@ -108,11 +108,11 @@ class Command(BaseCommand):
         employees = []
         for _ in range(num_employees):
             # 70%の確率で組織に所属、30%の確率で未所属
-            organization = fake.random_element(organizations) if fake.boolean(chance_of_getting_true=70) else None
+            department = fake.random_element(departments) if fake.boolean(chance_of_getting_true=70) else None
             employee = Employee.objects.create(
                 name=fake.name(),
                 email=fake.email(),
-                organization=organization,
+                department=department,
             )
             employees.append(employee)
 
@@ -139,7 +139,7 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 f'初期データの投入が完了しました。\n'
-                f'  組織: {Organization.objects.count()}件\n'
+                f'  組織: {Department.objects.count()}件\n'
                 f'  社員: {Employee.objects.count()}件\n'
                 f'  ユーザー: {User.objects.count()}件\n'
                 f'  記事: {Article.objects.count()}件\n'

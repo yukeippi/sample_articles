@@ -24,13 +24,13 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name='Organization',
+            name='Department',
             fields=[
                 ('created_at', models.DateTimeField(auto_now_add=True, db_index=True, verbose_name='作成日時')),
                 ('updated_at', models.DateTimeField(auto_now=True, verbose_name='更新日時')),
                 ('id', models.UUIDField(default=uuid.uuid7, editable=False, primary_key=True, serialize=False, verbose_name='ID')),
                 ('name', models.CharField(max_length=200, verbose_name='組織名')),
-                ('parent', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='children', to='app.organization', verbose_name='親組織')),
+                ('parent', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='children', to='app.department', verbose_name='親組織')),
             ],
             options={
                 'verbose_name': '組織',
@@ -39,7 +39,7 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name='OrganizationReservation',
+            name='DepartmentReservation',
             fields=[
                 ('created_at', models.DateTimeField(auto_now_add=True, db_index=True, verbose_name='作成日時')),
                 ('updated_at', models.DateTimeField(auto_now=True, verbose_name='更新日時')),
@@ -47,8 +47,8 @@ class Migration(migrations.Migration):
                 ('action', models.CharField(choices=[('create', '新規作成'), ('update', '更新'), ('delete', '削除')], max_length=10, verbose_name='操作種別')),
                 ('name', models.CharField(blank=True, max_length=200, null=True, verbose_name='組織名')),
                 ('scheduled_date', models.DateField(verbose_name='適用予定日')),
-                ('organization', models.ForeignKey(blank=True, help_text='新規作成の場合はNull', null=True, on_delete=django.db.models.deletion.CASCADE, related_name='reservations', to='app.organization', verbose_name='対象組織')),
-                ('parent', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='child_reservations', to='app.organization', verbose_name='親組織')),
+                ('department', models.ForeignKey(blank=True, help_text='新規作成の場合はNull', null=True, on_delete=django.db.models.deletion.CASCADE, related_name='reservations', to='app.department', verbose_name='対象組織')),
+                ('parent', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='child_reservations', to='app.department', verbose_name='親組織')),
                 ('status', models.ForeignKey(default='pending', on_delete=django.db.models.deletion.PROTECT, to='app.updatestatus', verbose_name='ステータス')),
             ],
             options={
@@ -58,15 +58,15 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.AddIndex(
-            model_name='organization',
+            model_name='department',
             index=models.Index(fields=['parent'], name='app_organiz_parent__9b9e31_idx'),
         ),
         migrations.AddIndex(
-            model_name='organizationreservation',
+            model_name='departmentreservation',
             index=models.Index(fields=['scheduled_date', 'status'], name='app_organiz_schedul_f16990_idx'),
         ),
         migrations.AddIndex(
-            model_name='organizationreservation',
-            index=models.Index(fields=['organization'], name='app_organiz_organiz_0bb24f_idx'),
+            model_name='departmentreservation',
+            index=models.Index(fields=['department'], name='app_organiz_organiz_0bb24f_idx'),
         ),
     ]
