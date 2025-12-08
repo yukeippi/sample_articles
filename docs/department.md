@@ -10,7 +10,7 @@
 
 ## テーブル構造
 
-### Organization（組織）
+### Department（組織）
 
 | カラム名 | 型 | 制約 | 説明 |
 |---------|-----|------|------|
@@ -22,8 +22,8 @@
 | updated_at | TIMESTAMP | NOT NULL | 更新日時 |
 
 **インデックス:**
-- `idx_organization_parent`: (parent_id)
-- `idx_organization_deleted_at`: (deleted_at)
+- `idx_department_parent`: (parent_id)
+- `idx_department_deleted_at`: (deleted_at)
 
 **制約:**
 - `parent`: CASCADE制約（親組織の物理削除時は子組織も物理削除される）
@@ -85,14 +85,14 @@
 
 ## モデル定義
 
-### Organizationモデル (`app/models/organization.py`)
+### Departmentモデル (`app/models/department.py`)
 
 ```python
 from uuid import uuid7
 from django.db import models
 from .base import TimestampedModel, SoftDeleteModel
 
-class Organization(TimestampedModel, SoftDeleteModel):
+class Department(TimestampedModel, SoftDeleteModel):
     """組織マスターモデル（隣接リストモデル）"""
 
     id = models.UUIDField(
@@ -173,22 +173,22 @@ class Organization(TimestampedModel, SoftDeleteModel):
 
 **ルート組織の作成:**
 ```python
-from app.models import Organization
+from app.models import Department
 
 # ルート組織（親なし）
-company = Organization.objects.create(name='株式会社サンプル')
+company = Department.objects.create(name='株式会社サンプル')
 ```
 
 **子組織の作成:**
 ```python
 # 親組織を指定
-sales_dept = Organization.objects.create(
+sales_dept = Department.objects.create(
     name='営業部',
     parent=company
 )
 
 # さらに子組織
-sales_team1 = Organization.objects.create(
+sales_team1 = Department.objects.create(
     name='営業一課',
     parent=sales_dept
 )
@@ -198,36 +198,36 @@ sales_team1 = Organization.objects.create(
 
 ```python
 # 全組織取得（論理削除されていない組織のみ）
-organizations = Organization.objects.all()
+organizations = Department.objects.all()
 
 # 親組織を含めて取得（N+1問題を回避）
-organizations = Organization.objects.select_related('parent').all()
+organizations = Department.objects.select_related('parent').all()
 
 # ルート組織のみ取得
-root_orgs = Organization.objects.filter(parent__isnull=True)
+root_orgs = Department.objects.filter(parent__isnull=True)
 
 # 特定組織の子組織を取得
-sales_dept = Organization.objects.get(name='営業部')
+sales_dept = Department.objects.get(name='営業部')
 children = sales_dept.children.all()  # related_name='children'
 
 # 削除済みも含めて取得
-all_orgs = Organization.objects.with_deleted()
+all_orgs = Department.objects.with_deleted()
 
 # 削除済みのみ取得
-deleted_orgs = Organization.objects.only_deleted()
+deleted_orgs = Department.objects.only_deleted()
 ```
 
 #### 更新
 
 ```python
 # 組織名を変更
-org = Organization.objects.get(name='営業部')
+org = Department.objects.get(name='営業部')
 org.name = '営業本部'
 org.save()
 
 # 親組織を変更（組織の移動）
-hr_dept = Organization.objects.get(name='人事部')
-recruiting = Organization.objects.get(name='採用課')
+hr_dept = Department.objects.get(name='人事部')
+recruiting = Department.objects.get(name='採用課')
 recruiting.parent = hr_dept
 recruiting.save()
 
@@ -240,7 +240,7 @@ org.save()
 
 **論理削除（推奨）:**
 ```python
-org = Organization.objects.get(name='旧企画部')
+org = Department.objects.get(name='旧企画部')
 org.delete()  # deleted_at に現在時刻が設定される
 
 # 削除されたかどうか確認
@@ -254,7 +254,7 @@ print(org.is_deleted)  # True
 **論理削除の具体例:**
 ```python
 # 削除前の状態
-org = Organization.objects.get(name='営業部')
+org = Department.objects.get(name='営業部')
 children = org.children.all()  # [営業一課, 営業二課]
 employees = org.employees.all()  # [山田太郎, 田中花子, ...]
 
@@ -270,7 +270,7 @@ for child in children:
 # 2. 所属社員は未所属になる
 for employee in employees:
     employee.refresh_from_db()
-    print(employee.organization)  # None（未所属化）
+    print(employee.department)  # None（未所属化）
 
 # 3. 組織自体は論理削除される
 org.refresh_from_db()
@@ -280,7 +280,7 @@ print(org.is_deleted)  # True
 **削除の取り消し（復元）:**
 ```python
 # 削除済み組織を取得
-org = Organization.objects.with_deleted().get(name='旧企画部')
+org = Department.objects.with_deleted().get(name='旧企画部')
 
 # 復元
 if org.is_deleted:
@@ -289,7 +289,7 @@ if org.is_deleted:
 
 **物理削除（非推奨）:**
 ```python
-org = Organization.objects.get(name='営業部')
+org = Department.objects.get(name='営業部')
 org.hard_delete()  # データベースから完全に削除される
 
 # 注意: CASCADE により子組織も物理削除される
@@ -300,7 +300,7 @@ org.hard_delete()  # データベースから完全に削除される
 #### 先祖組織の取得
 
 ```python
-org = Organization.objects.get(name='営業一課')
+org = Department.objects.get(name='営業一課')
 ancestors = org.get_ancestors()  # [営業部, 株式会社サンプル]
 
 # ルート組織の取得
@@ -310,7 +310,7 @@ root = ancestors[-1] if ancestors else org
 #### 子孫組織の取得
 
 ```python
-company = Organization.objects.get(name='株式会社サンプル')
+company = Department.objects.get(name='株式会社サンプル')
 descendants = company.get_descendants()  # 全ての子孫組織
 
 # 子孫組織数を取得
@@ -320,13 +320,13 @@ count = len(descendants)
 #### 階層レベルの取得
 
 ```python
-company = Organization.objects.get(name='株式会社サンプル')
+company = Department.objects.get(name='株式会社サンプル')
 print(company.get_level())  # 0（ルート）
 
-sales_dept = Organization.objects.get(name='営業部')
+sales_dept = Department.objects.get(name='営業部')
 print(sales_dept.get_level())  # 1
 
-sales_team1 = Organization.objects.get(name='営業一課')
+sales_team1 = Department.objects.get(name='営業一課')
 print(sales_team1.get_level())  # 2
 ```
 
@@ -338,7 +338,7 @@ print(sales_team1.get_level())  # 2
 from app.utils.tree import build_tree, get_tree_html
 
 # 全組織を取得
-organizations = Organization.objects.select_related('parent').all()
+organizations = Department.objects.select_related('parent').all()
 
 # ツリー用のデータを準備
 org_list = [
@@ -361,7 +361,7 @@ tree_html = get_tree_html(tree)
 
 ### 組織一覧
 
-URL: `/organizations/`
+URL: `/departments/`
 
 **表示内容:**
 - 組織ツリー（階層構造を視覚的に表示）
@@ -379,7 +379,7 @@ URL: `/organizations/`
 
 ### 組織作成
 
-URL: `/organizations/new/`
+URL: `/departments/new/`
 
 **入力項目:**
 - 組織名（必須）
@@ -387,7 +387,7 @@ URL: `/organizations/new/`
 
 ### 組織編集
 
-URL: `/organizations/{id}/edit/`
+URL: `/departments/{id}/edit/`
 
 **入力項目:**
 - 組織名
@@ -395,13 +395,13 @@ URL: `/organizations/{id}/edit/`
 
 ### 組織削除
 
-URL: `/organizations/{id}/delete/`
+URL: `/departments/{id}/delete/`
 
 削除前に確認画面を表示。CASCADE制約により、子組織も削除されることを警告。
 
 ### 組織プレビュー
 
-URL: `/organizations/preview/?date=YYYY-MM-DD`
+URL: `/departments/preview/?date=YYYY-MM-DD`
 
 **機能:**
 - 指定した日付時点での組織構造をプレビュー
@@ -410,10 +410,10 @@ URL: `/organizations/preview/?date=YYYY-MM-DD`
 
 ## フォーム
 
-### OrganizationForm (`app/forms.py`)
+### DepartmentForm (`app/forms.py`)
 
 ```python
-class OrganizationForm(forms.ModelForm):
+class DepartmentForm(forms.ModelForm):
     """組織の作成・編集フォーム"""
 
     class Meta:
@@ -435,33 +435,33 @@ class OrganizationForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['parent'].required = False
-        self.fields['parent'].queryset = Organization.objects.all()
+        self.fields['parent'].queryset = Department.objects.all()
 ```
 
 ## ビュー
 
-### OrganizationListView
+### DepartmentListView
 - **用途**: 組織一覧表示（ツリー + テーブル）
-- **テンプレート**: `organizations/organization_list.html`
+- **テンプレート**: `departments/department_list.html`
 
-### OrganizationCreateView
+### DepartmentCreateView
 - **用途**: 組織作成
-- **テンプレート**: `organizations/organization_form.html`
+- **テンプレート**: `departments/department_form.html`
 - **認証**: ログイン必須
 
-### OrganizationUpdateView
+### DepartmentUpdateView
 - **用途**: 組織編集
-- **テンプレート**: `organizations/organization_form.html`
+- **テンプレート**: `departments/department_form.html`
 - **認証**: ログイン必須
 
-### OrganizationDeleteView
+### DepartmentDeleteView
 - **用途**: 組織削除
-- **テンプレート**: `organizations/organization_confirm_delete.html`
+- **テンプレート**: `departments/department_confirm_delete.html`
 - **認証**: ログイン必須
 
-### OrganizationPreviewView
+### DepartmentPreviewView
 - **用途**: 予約更新を含めた組織構造のプレビュー
-- **テンプレート**: `organizations/organization_preview.html`
+- **テンプレート**: `departments/department_preview.html`
 - **認証**: ログイン必須
 
 ## バリデーション
@@ -493,7 +493,7 @@ def clean(self):
             })
 ```
 
-**注意:** 現在の実装では、この循環参照チェックは予約更新システムの `OrganizationReservationHelper.validate_hierarchy()` に実装されています。
+**注意:** 現在の実装では、この循環参照チェックは予約更新システムの `DepartmentReservationHelper.validate_hierarchy()` に実装されています。
 
 ### 2. CASCADE削除の警告
 
@@ -501,7 +501,7 @@ def clean(self):
 
 ```python
 # 削除前に子組織の存在をチェック
-org = Organization.objects.get(name='営業部')
+org = Department.objects.get(name='営業部')
 if org.children.exists():
     print(f'警告: {org.children.count()}件の子組織も削除されます')
 ```
@@ -540,7 +540,7 @@ def delete(self, using=None, keep_parents=False):
 └── 社員: 山田太郎、田中花子
 
 # 営業部を論理削除
-org = Organization.objects.get(name='営業部')
+org = Department.objects.get(name='営業部')
 org.delete()
 
 # 削除後
@@ -559,7 +559,7 @@ org.delete()
 
 ```python
 # 親組織を物理削除
-org = Organization.objects.get(name='営業部')
+org = Department.objects.get(name='営業部')
 org.hard_delete()  # 子組織も物理削除される
 ```
 
@@ -572,7 +572,7 @@ org.hard_delete()  # 子組織も物理削除される
 **論理削除の場合:**
 ```python
 # 社員が所属している組織を論理削除
-org = Organization.objects.get(name='営業部')
+org = Department.objects.get(name='営業部')
 employees = org.employees.all()  # [山田太郎, 田中花子, ...]
 
 org.delete()  # 論理削除を実行
@@ -580,7 +580,7 @@ org.delete()  # 論理削除を実行
 # 所属社員は未所属になる
 for employee in employees:
     employee.refresh_from_db()
-    print(employee.organization)  # None（未所属化）
+    print(employee.department)  # None（未所属化）
 
 # 組織自体は論理削除される
 org.refresh_from_db()
@@ -594,13 +594,13 @@ print(org.is_deleted)  # True
 **物理削除の場合:**
 ```python
 # 社員が所属している組織を物理削除しようとすると ProtectedError
-org = Organization.objects.get(name='営業部')
+org = Department.objects.get(name='営業部')
 if org.employees.exists():
     org.hard_delete()  # ProtectedError が発生
 
 # 物理削除するには、先に社員を削除または移動する必要がある
 for employee in org.employees.all():
-    employee.organization = other_org  # 他の組織に異動
+    employee.department = other_org  # 他の組織に異動
     employee.save()
 
 org.hard_delete()  # OK
@@ -619,11 +619,11 @@ org.hard_delete()  # OK
 ### 予約更新の作成
 
 ```python
-from app.utils.organization_reservation import OrganizationReservationHelper
+from app.utils.department_reservation import DepartmentReservationHelper
 from datetime import date
 
 # 2025年4月1日に新組織を作成
-OrganizationReservationHelper.create_reservation(
+DepartmentReservationHelper.create_reservation(
     action='create',
     scheduled_date=date(2025, 4, 1),
     name='新事業部',
@@ -631,7 +631,7 @@ OrganizationReservationHelper.create_reservation(
 )
 
 # 2025年4月1日に組織名を変更
-OrganizationReservationHelper.create_reservation(
+DepartmentReservationHelper.create_reservation(
     action='update',
     scheduled_date=date(2025, 4, 1),
     organization=sales_dept,
@@ -639,7 +639,7 @@ OrganizationReservationHelper.create_reservation(
 )
 
 # 2025年12月31日に組織を削除
-OrganizationReservationHelper.create_reservation(
+DepartmentReservationHelper.create_reservation(
     action='delete',
     scheduled_date=date(2025, 12, 31),
     organization=old_dept
@@ -667,7 +667,7 @@ OrganizationReservationHelper.create_reservation(
 
 ### 4. 論理削除の注意点
 
-- デフォルトのクエリ（`Organization.objects.all()`）は削除済みを除外します
+- デフォルトのクエリ（`Department.objects.all()`）は削除済みを除外します
 - 削除済みも含めて取得する場合は `with_deleted()` を使用します
 - 論理削除されたレコードもディスク容量を消費します
 - 詳細は [docs/soft_delete.md](soft_delete.md) を参照してください

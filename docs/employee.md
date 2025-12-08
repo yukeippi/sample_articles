@@ -15,13 +15,13 @@
 | id | UUID | PRIMARY KEY | 社員ID（uuid7） |
 | name | VARCHAR(200) | NOT NULL | 氏名 |
 | email | VARCHAR(254) | NOT NULL | メールアドレス |
-| organization_id | UUID | FOREIGN KEY, NULL | 所属組織ID（NULL=未所属） |
+| department_id | UUID | FOREIGN KEY, NULL | 所属組織ID（NULL=未所属） |
 | deleted_at | TIMESTAMP | NULL | 削除日時（論理削除） |
 | created_at | TIMESTAMP | NOT NULL | 作成日時 |
 | updated_at | TIMESTAMP | NOT NULL | 更新日時 |
 
 **インデックス:**
-- `idx_employee_organization`: (organization_id)
+- `idx_employee_organization`: (department_id)
 - `idx_employee_email`: (email)
 - `idx_employee_deleted_at`: (deleted_at)
 
@@ -38,20 +38,20 @@
   "id": "01234567-89ab-cdef-0123-456789abcdef",
   "name": "山田太郎",
   "email": "yamada.taro@example.com",
-  "organization_id": "fedcba98-7654-3210-fedc-ba9876543210",
+  "department_id": "fedcba98-7654-3210-fedc-ba9876543210",
   "deleted_at": null,
   "created_at": "2025-01-15 10:00:00",
   "updated_at": "2025-01-15 10:00:00"
 }
 ```
 
-### 未所属の社員（organization_id が NULL）
+### 未所属の社員（department_id が NULL）
 ```json
 {
   "id": "abcdef12-3456-7890-abcd-ef1234567890",
   "name": "佐藤次郎",
   "email": "sato.jiro@example.com",
-  "organization_id": null,
+  "department_id": null,
   "deleted_at": null,
   "created_at": "2025-01-20 14:00:00",
   "updated_at": "2025-01-20 14:00:00"
@@ -64,7 +64,7 @@
   "id": "98765432-10fe-dcba-9876-543210fedcba",
   "name": "田中花子",
   "email": "tanaka.hanako@example.com",
-  "organization_id": "fedcba98-7654-3210-fedc-ba9876543210",
+  "department_id": "fedcba98-7654-3210-fedc-ba9876543210",
   "deleted_at": "2025-02-01 15:30:00",
   "created_at": "2025-01-10 09:00:00",
   "updated_at": "2025-02-01 15:30:00"
@@ -97,8 +97,8 @@ class Employee(TimestampedModel, SoftDeleteModel):
     email = models.EmailField(
         verbose_name='メールアドレス'
     )
-    organization = models.ForeignKey(
-        'Organization',
+    department = models.ForeignKey(
+        'Department',
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -111,7 +111,7 @@ class Employee(TimestampedModel, SoftDeleteModel):
         verbose_name_plural = '社員'
         ordering = ['name']
         indexes = [
-            models.Index(fields=['organization']),
+            models.Index(fields=['department']),
             models.Index(fields=['email']),
         ]
 
@@ -152,13 +152,13 @@ class Employee(TimestampedModel, SoftDeleteModel):
 
 #### 作成
 ```python
-from app.models import Employee, Organization
+from app.models import Employee, Department
 
-org = Organization.objects.get(name='営業部')
+org = Department.objects.get(name='営業部')
 employee = Employee.objects.create(
     name='山田太郎',
     email='yamada.taro@example.com',
-    organization=org
+    department=org
 )
 ```
 
@@ -168,7 +168,7 @@ employee = Employee.objects.create(
 employees = Employee.objects.all()
 
 # 特定組織の社員取得
-org_employees = Employee.objects.filter(organization=org)
+org_employees = Employee.objects.filter(department=org)
 
 # メールアドレスで検索
 employee = Employee.objects.get(email='yamada.taro@example.com')
@@ -187,8 +187,8 @@ employee.name = '山田次郎'
 employee.save()
 
 # 組織異動
-new_org = Organization.objects.get(name='人事部')
-employee.organization = new_org
+new_org = Department.objects.get(name='人事部')
+employee.department = new_org
 employee.save()
 ```
 
@@ -223,7 +223,7 @@ employee.hard_delete()  # データベースから完全に削除される
 
 #### 組織から社員を取得
 ```python
-org = Organization.objects.get(name='営業部')
+org = Department.objects.get(name='営業部')
 employees = org.employees.all()  # related_name='employees'
 
 # 社員数を取得
@@ -233,7 +233,7 @@ employee_count = org.employees.count()
 #### 社員から組織を取得
 ```python
 employee = Employee.objects.get(email='yamada.taro@example.com')
-org = employee.organization
+org = employee.department
 print(org.name)  # '営業部'
 ```
 
@@ -291,7 +291,7 @@ class EmployeeForm(forms.ModelForm):
             'email': forms.EmailInput(
                 attrs={'class': 'form-control', 'placeholder': 'メールアドレスを入力'}
             ),
-            'organization': forms.Select(
+            'department': forms.Select(
                 attrs={'class': 'form-select'}
             ),
         }
@@ -339,7 +339,7 @@ try:
     Employee.objects.create(
         name='田中花子',
         email='yamada.taro@example.com',  # 既存の有効な社員のメール
-        organization=org
+        department=org
     )
 except ValidationError as e:
     print(e.message_dict)  # {'email': ['このメールアドレスは既に使用されています。']}
@@ -356,7 +356,7 @@ employee1.delete()  # 論理削除
 employee2 = Employee.objects.create(
     name='山田次郎',
     email='yamada.taro@example.com',  # OK（employee1は削除済み）
-    organization=org
+    department=org
 )
 ```
 
@@ -368,7 +368,7 @@ employee2 = Employee.objects.create(
 
 ```python
 # 社員が所属している組織を論理削除
-org = Organization.objects.get(name='営業部')
+org = Department.objects.get(name='営業部')
 if org.employees.exists():
     org.delete()  # 組織が論理削除される（社員との関係は維持）
 ```
@@ -379,7 +379,7 @@ if org.employees.exists():
 
 ```python
 # 社員が所属している組織を物理削除しようとすると ProtectedError
-org = Organization.objects.get(name='営業部')
+org = Department.objects.get(name='営業部')
 if org.employees.exists():
     org.hard_delete()  # ProtectedError が発生
 ```
@@ -392,7 +392,7 @@ if org.employees.exists():
 
 ```python
 # 組織を論理削除
-org = Organization.objects.get(name='営業部')
+org = Department.objects.get(name='営業部')
 employees = org.employees.all()  # [山田太郎, 田中花子, ...]
 
 org.delete()  # 論理削除を実行
@@ -400,7 +400,7 @@ org.delete()  # 論理削除を実行
 # 所属社員は未所属になる（organization が NULL に設定される）
 for employee in employees:
     employee.refresh_from_db()
-    print(employee.organization)  # None（未所属化）
+    print(employee.department)  # None（未所属化）
 
 # 組織自体は論理削除される
 org.refresh_from_db()
@@ -421,7 +421,7 @@ affiliated_employees = Employee.objects.filter(organization__isnull=False)
 
 ```python
 # 組織に所属する全社員を論理削除
-org = Organization.objects.get(name='営業部')
+org = Department.objects.get(name='営業部')
 org.employees.all().delete()  # 全社員を論理削除
 
 # 組織も論理削除
@@ -434,12 +434,12 @@ org.delete()
 
 ```python
 # 正しい物理削除手順
-org = Organization.objects.get(name='営業部')
+org = Department.objects.get(name='営業部')
 
 # 1. 社員を他の組織に異動させる
-new_org = Organization.objects.get(name='人事部')
+new_org = Department.objects.get(name='人事部')
 for employee in org.employees.all():
-    employee.organization = new_org
+    employee.department = new_org
     employee.save()
 
 # 2. 組織を物理削除
@@ -450,7 +450,7 @@ org.hard_delete()
 
 ```python
 # 社員ごと物理削除する場合
-org = Organization.objects.get(name='営業部')
+org = Department.objects.get(name='営業部')
 for employee in org.employees.all():
     employee.hard_delete()  # 物理削除
 
@@ -475,7 +475,7 @@ EmployeeReservationHelper.create_reservation(
     action='update',
     scheduled_date=date(2025, 4, 1),
     employee=employee,
-    organization=new_org
+    department=new_org
 )
 ```
 
@@ -490,7 +490,7 @@ EmployeeReservationHelper.create_reservation(
 ### 2. 組織との関連
 
 - 社員は組織に所属することができます（NULL 許可）
-- 所属組織が論理削除されると、社員は未所属（organization=NULL）になります
+- 所属組織が論理削除されると、社員は未所属（department=NULL）になります
 - 未所属の社員も作成可能です
 
 ### 3. データ整合性
@@ -520,7 +520,7 @@ EmployeeReservationHelper.create_reservation(
 
 **関連ドキュメント:**
 - [論理削除の詳細](soft_delete.md)
-- [組織モデル](organization.md)（未作成）
+- [組織モデル](department.md)
 - [予約更新システム](reservation.md)
 
 将来的に、組織統合機能と連携して、社員の自動移動なども実装予定です。

@@ -65,7 +65,7 @@ cancelled | キャンセル済み
 ```json
 {
   "id": "01234567-89ab-cdef-0123-456789abcdef",
-  "content_type_id": 5,  // Organization
+  "content_type_id": 5,  // Department
   "object_id": null,
   "action": "create",
   "data": {
@@ -87,7 +87,7 @@ cancelled | キャンセル済み
 ```json
 {
   "id": "fedcba98-7654-3210-fedc-ba9876543210",
-  "content_type_id": 5,  // Organization
+  "content_type_id": 5,  // Department
   "object_id": null,
   "action": "create",
   "data": {
@@ -174,7 +174,7 @@ class Reservation(TimestampedModel):
     applied_object_id = models.UUIDField(null=True, blank=True, ...)
 ```
 
-#### 2. OrganizationReservationHelper (`app/utils/organization_reservation.py`)
+#### 2. DepartmentReservationHelper (`app/utils/department_reservation.py`)
 
 組織モデル専用のヘルパークラス。汎用Reservationモデルを使いやすくラップします。
 
@@ -190,21 +190,21 @@ class Reservation(TimestampedModel):
 ### 1. 組織の新規作成を予約
 
 ```python
-from app.utils.organization_reservation import OrganizationReservationHelper
+from app.utils.department_reservation import DepartmentReservationHelper
 from datetime import date
 
 # 既存組織を親とする場合
-OrganizationReservationHelper.create_reservation(
+DepartmentReservationHelper.create_reservation(
     action='create',
     scheduled_date=date(2025, 4, 1),
     name='営業部',
-    parent=existing_org,  # 既存のOrganizationオブジェクト
+    parent=existing_dept,  # 既存のOrganizationオブジェクト
 )
 # → 階層検証が自動的に実行されます
 
 # 未来の組織を親とする場合
 parent_reservation = Reservation.objects.get(...)  # 親となる予約
-OrganizationReservationHelper.create_reservation(
+DepartmentReservationHelper.create_reservation(
     action='create',
     scheduled_date=date(2025, 4, 1),
     name='営業一課',
@@ -216,10 +216,10 @@ OrganizationReservationHelper.create_reservation(
 ### 2. 組織の更新を予約
 
 ```python
-OrganizationReservationHelper.create_reservation(
+DepartmentReservationHelper.create_reservation(
     action='update',
     scheduled_date=date(2025, 5, 1),
-    organization=existing_org,
+    organization=existing_dept,
     name='営業部（新名称）',
     parent=new_parent_org,
 )
@@ -229,7 +229,7 @@ OrganizationReservationHelper.create_reservation(
 ### 3. 組織の削除を予約
 
 ```python
-OrganizationReservationHelper.create_reservation(
+DepartmentReservationHelper.create_reservation(
     action='delete',
     scheduled_date=date(2025, 6, 1),
     organization=org_to_delete,
@@ -473,7 +473,7 @@ class EmployeeReservationForm(forms.Form):
         label='メールアドレス',
     )
     organization = forms.ModelChoiceField(
-        queryset=Organization.objects.all(),
+        queryset=Department.objects.all(),
         required=False,
         label='所属組織',
     )
