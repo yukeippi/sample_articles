@@ -1,5 +1,6 @@
 """組織予約更新のヘルパー"""
 
+import contextlib
 from uuid import uuid7
 
 from django.contrib.contenttypes.models import ContentType
@@ -48,7 +49,15 @@ class DepartmentReservationHelper:
                 pass  # 新規作成の場合はチェック不要
 
     @staticmethod
-    def create_reservation(action, scheduled_date, department=None, name=None, parent=None, parent_reservation=None, target_department=None):
+    def create_reservation(
+        action,
+        scheduled_date,
+        department=None,
+        name=None,
+        parent=None,
+        parent_reservation=None,
+        target_department=None,
+    ):
         """組織の予約更新を作成
 
         Args:
@@ -68,8 +77,7 @@ class DepartmentReservationHelper:
         # 階層検証（既存の親組織が指定されている場合）
         if parent:
             DepartmentReservationHelper.validate_hierarchy(
-                department_id=department.id if department else None,
-                parent_id=parent.id
+                department_id=department.id if department else None, parent_id=parent.id
             )
 
         data = {}
@@ -199,7 +207,11 @@ class DepartmentReservationHelper:
             reservation.applied_at = timezone.now()
             reservation.save()
 
-            return dept if reservation.action not in [Reservation.ACTION_DELETE, Reservation.ACTION_MERGE] else None
+            return (
+                dept
+                if reservation.action not in [Reservation.ACTION_DELETE, Reservation.ACTION_MERGE]
+                else None
+            )
 
     @staticmethod
     def get_pending_reservations(scheduled_date=None):
@@ -238,26 +250,20 @@ class DepartmentReservationHelper:
         """
         department = None
         if reservation.object_id:
-            try:
+            with contextlib.suppress(Department.DoesNotExist):
                 department = Department.objects.get(id=reservation.object_id)
-            except Department.DoesNotExist:
-                pass
 
         parent = None
         parent_id = reservation.data.get('parent_id')
         if parent_id:
-            try:
+            with contextlib.suppress(Department.DoesNotExist):
                 parent = Department.objects.get(id=parent_id)
-            except Department.DoesNotExist:
-                pass
 
         target_department = None
         target_department_id = reservation.data.get('target_department_id')
         if target_department_id:
-            try:
+            with contextlib.suppress(Department.DoesNotExist):
                 target_department = Department.objects.get(id=target_department_id)
-            except Department.DoesNotExist:
-                pass
 
         return {
             'id': reservation.id,

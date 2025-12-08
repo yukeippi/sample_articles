@@ -3,7 +3,7 @@ from django.core.management.base import BaseCommand
 from faker import Faker
 from model_bakery import baker
 
-from app.models import Article, Comment, Employee, Department
+from app.models import Article, Comment, Department, Employee
 
 fake = Faker('ja_JP')
 
@@ -108,7 +108,11 @@ class Command(BaseCommand):
         employees = []
         for _ in range(num_employees):
             # 70%の確率で組織に所属、30%の確率で未所属
-            department = fake.random_element(departments) if fake.boolean(chance_of_getting_true=70) else None
+            department = (
+                fake.random_element(departments)
+                if fake.boolean(chance_of_getting_true=70)
+                else None
+            )
             employee = Employee.objects.create(
                 name=fake.name(),
                 email=fake.email(),

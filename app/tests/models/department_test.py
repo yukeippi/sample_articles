@@ -5,10 +5,10 @@
 import pytest
 from django.db.models import ProtectedError
 
-from app.models import Employee, Department
+from app.models import Department
 from app.tests.factories import (
-    EmployeeFactory,
     DepartmentFactory,
+    EmployeeFactory,
     create_department_hierarchy,
     create_department_with_employees,
 )
@@ -388,7 +388,7 @@ class TestDepartmentMerge:
         employees_a = EmployeeFactory.create_batch(2, department=org_a)
 
         # 組織Bに社員を追加
-        employees_b = EmployeeFactory.create_batch(3, department=org_b)
+        EmployeeFactory.create_batch(3, department=org_b)
 
         # 組織Bを組織Aに統合
         org_b.merge_into(org_a)

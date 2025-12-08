@@ -132,7 +132,7 @@ class Reservation(TimestampedModel):
         elif self.content_object:
             return str(self.content_object)
         else:
-            return f"ID: {self.object_id}"
+            return f'ID: {self.object_id}'
 
     def check_circular_dependency(self):
         """循環参照チェック
@@ -149,9 +149,7 @@ class Reservation(TimestampedModel):
         while current:
             if current.id in visited:
                 # 循環参照を検出
-                raise ValueError(
-                    f'循環参照が検出されました: {self.id} -> ... -> {current.id}'
-                )
+                raise ValueError(f'循環参照が検出されました: {self.id} -> ... -> {current.id}')
             visited.add(current.id)
             current = current.depends_on
 
@@ -192,10 +190,12 @@ class Reservation(TimestampedModel):
 
         while queue:
             # 予定日が早い順、作成日時が早い順にソート
-            queue.sort(key=lambda rid: (
-                reservation_dict[rid].scheduled_date,
-                reservation_dict[rid].created_at
-            ))
+            queue.sort(
+                key=lambda rid: (
+                    reservation_dict[rid].scheduled_date,
+                    reservation_dict[rid].created_at,
+                )
+            )
 
             current_id = queue.pop(0)
             sorted_ids.append(current_id)

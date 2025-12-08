@@ -2,7 +2,7 @@ from uuid import uuid7
 
 from django.db import models
 
-from .base import TimestampedModel, SoftDeleteModel
+from .base import SoftDeleteModel, TimestampedModel
 
 
 class Department(TimestampedModel, SoftDeleteModel):

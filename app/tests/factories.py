@@ -7,7 +7,7 @@ from django.contrib.auth.models import User
 from faker import Faker
 from model_bakery import baker
 
-from app.models import Article, Comment, Employee, Department
+from app.models import Article, Comment, Department, Employee
 
 fake = Faker('ja_JP')
 

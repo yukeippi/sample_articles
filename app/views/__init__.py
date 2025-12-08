@@ -7,6 +7,13 @@ from app.views.article import (
     LoginView,
     LogoutView,
 )
+from app.views.department import (
+    DepartmentCreateView,
+    DepartmentDeleteView,
+    DepartmentListView,
+    DepartmentMergeView,
+    DepartmentUpdateView,
+)
 from app.views.employee import (
     EmployeeCreateView,
     EmployeeDeleteView,
@@ -18,13 +25,6 @@ from app.views.employee import (
     EmployeeReservationUpdateView,
     EmployeeUpdateView,
 )
-from app.views.department import (
-    DepartmentCreateView,
-    DepartmentDeleteView,
-    DepartmentListView,
-    DepartmentMergeView,
-    DepartmentUpdateView,
-)
 from app.views.reservation import (
     DepartmentPreviewView,
     DepartmentReservationCreateView,
@@ -34,34 +34,30 @@ from app.views.reservation import (
 )
 
 __all__ = [
-    # Article views
+    'ArticleCreateView',
+    'ArticleDeleteView',
+    'ArticleDetailView',
+    'ArticleUpdateView',
+    'DepartmentCreateView',
+    'DepartmentDeleteView',
+    'DepartmentListView',
+    'DepartmentMergeView',
+    'DepartmentPreviewView',
+    'DepartmentReservationCreateView',
+    'DepartmentReservationDeleteView',
+    'DepartmentReservationListView',
+    'DepartmentReservationUpdateView',
+    'DepartmentUpdateView',
+    'EmployeeCreateView',
+    'EmployeeDeleteView',
+    'EmployeeListView',
+    'EmployeePreviewView',
+    'EmployeeReservationCreateView',
+    'EmployeeReservationDeleteView',
+    'EmployeeReservationListView',
+    'EmployeeReservationUpdateView',
+    'EmployeeUpdateView',
     'IndexView',
     'LoginView',
     'LogoutView',
-    'ArticleCreateView',
-    'ArticleDetailView',
-    'ArticleUpdateView',
-    'ArticleDeleteView',
-    # Employee views
-    'EmployeeListView',
-    'EmployeeCreateView',
-    'EmployeeUpdateView',
-    'EmployeeDeleteView',
-    'EmployeeReservationListView',
-    'EmployeeReservationCreateView',
-    'EmployeeReservationUpdateView',
-    'EmployeeReservationDeleteView',
-    'EmployeePreviewView',
-    # Department views
-    'DepartmentListView',
-    'DepartmentCreateView',
-    'DepartmentUpdateView',
-    'DepartmentDeleteView',
-    'DepartmentMergeView',
-    # Reservation views
-    'DepartmentReservationListView',
-    'DepartmentReservationCreateView',
-    'DepartmentReservationUpdateView',
-    'DepartmentReservationDeleteView',
-    'DepartmentPreviewView',
 ]

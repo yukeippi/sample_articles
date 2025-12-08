@@ -1,6 +1,6 @@
 from django import forms
 
-from app.models import Article, Employee, Department, Reservation
+from app.models import Article, Department, Employee, Reservation
 
 
 class ArticleForm(forms.ModelForm):
@@ -105,13 +105,14 @@ class DepartmentReservationForm(forms.Form):
         super().__init__(*args, **kwargs)
         # 予約中の組織新規作成予約を parent_reservation の選択肢に設定
         from app.utils.department_reservation import DepartmentReservationHelper
+
         pending_reservations = DepartmentReservationHelper.get_pending_reservations()
         create_reservations = pending_reservations.filter(action=Reservation.ACTION_CREATE)
 
         # 選択肢をわかりやすく表示
         self.fields['parent_reservation'].queryset = create_reservations
         self.fields['parent_reservation'].label_from_instance = lambda obj: (
-            f"{obj.data.get('name', '不明')} (予定日: {obj.scheduled_date})"
+            f'{obj.data.get("name", "不明")} (予定日: {obj.scheduled_date})'
         )
 
     def clean(self):
@@ -144,7 +145,9 @@ class DepartmentReservationForm(forms.Form):
 
         # 親組織と親予約の両方が指定されている場合はエラー
         if parent and parent_reservation:
-            raise forms.ValidationError('親組織（既存）と親組織（未来の予約）は同時に指定できません。どちらか一方を選択してください。')
+            raise forms.ValidationError(
+                '親組織（既存）と親組織（未来の予約）は同時に指定できません。どちらか一方を選択してください。'
+            )
 
         return cleaned_data
 
@@ -157,7 +160,9 @@ class EmployeeForm(forms.ModelForm):
         fields = ['name', 'email', 'department']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '氏名を入力'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'メールアドレスを入力'}),
+            'email': forms.EmailInput(
+                attrs={'class': 'form-control', 'placeholder': 'メールアドレスを入力'}
+            ),
             'department': forms.Select(attrs={'class': 'form-select'}),
         }
         labels = {
@@ -238,7 +243,9 @@ class EmployeeReservationForm(forms.Form):
     email = forms.EmailField(
         required=False,
         label='メールアドレス',
-        widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'メールアドレスを入力'}),
+        widget=forms.EmailInput(
+            attrs={'class': 'form-control', 'placeholder': 'メールアドレスを入力'}
+        ),
     )
     department = forms.ModelChoiceField(
         queryset=Department.objects.all(),

@@ -31,15 +31,12 @@ class SoftDeleteManager(models.Manager):
 class SoftDeleteModel(models.Model):
     """論理削除を実装する基底モデル"""
 
-    deleted_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        db_index=True,
-        verbose_name='削除日時'
-    )
+    # Fields
+    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name='削除日時')
 
-    objects = SoftDeleteManager()
+    # Managers
     all_objects = models.Manager()  # 削除済み含む全レコード
+    objects = SoftDeleteManager()
 
     class Meta:
         abstract = True

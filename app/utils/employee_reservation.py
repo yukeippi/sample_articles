@@ -1,5 +1,6 @@
 """社員予約更新のヘルパー"""
 
+import contextlib
 from uuid import uuid7
 
 from django.contrib.contenttypes.models import ContentType
@@ -18,7 +19,9 @@ class EmployeeReservationHelper:
         return ContentType.objects.get_for_model(Employee)
 
     @staticmethod
-    def create_reservation(action, scheduled_date, employee=None, name=None, email=None, department=None):
+    def create_reservation(
+        action, scheduled_date, employee=None, name=None, email=None, department=None
+    ):
         """社員の予約更新を作成
 
         Args:
@@ -41,7 +44,10 @@ class EmployeeReservationHelper:
             data['email'] = email
         if department:
             data['department_id'] = str(department.id)
-        elif department is None and action in [Reservation.ACTION_CREATE, Reservation.ACTION_UPDATE]:
+        elif department is None and action in [
+            Reservation.ACTION_CREATE,
+            Reservation.ACTION_UPDATE,
+        ]:
             # 組織をNullに設定する場合
             data['department_id'] = None
 
@@ -79,6 +85,7 @@ class EmployeeReservationHelper:
                 department = None
                 if department_id:
                     from app.models import Department
+
                     department = Department.objects.get(id=department_id)
 
                 employee = Employee.objects.create(
@@ -106,6 +113,7 @@ class EmployeeReservationHelper:
                     department_id = reservation.data['department_id']
                     if department_id:
                         from app.models import Department
+
                         employee.department = Department.objects.get(id=department_id)
                     else:
                         employee.department = None
@@ -164,16 +172,15 @@ class EmployeeReservationHelper:
         """
         employee = None
         if reservation.object_id:
-            try:
+            with contextlib.suppress(Employee.DoesNotExist):
                 employee = Employee.objects.get(id=reservation.object_id)
-            except Employee.DoesNotExist:
-                pass
 
         department = None
         department_id = reservation.data.get('department_id')
         if department_id:
             try:
                 from app.models import Department
+
                 department = Department.objects.get(id=department_id)
             except Department.DoesNotExist:
                 pass

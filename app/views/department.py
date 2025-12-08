@@ -79,12 +79,11 @@ class DepartmentMergeView(LoginRequiredMixin, View):
                 # 統合実行
                 source.merge_into(target)
                 messages.success(
-                    request,
-                    f'組織「{source.name}」を「{target.name}」に統合しました。'
+                    request, f'組織「{source.name}」を「{target.name}」に統合しました。'
                 )
                 return redirect('app:department_list')
             except ValueError as e:
-                messages.error(request, f'統合に失敗しました: {str(e)}')
+                messages.error(request, f'統合に失敗しました: {e!s}')
                 return render(request, 'departments/merge.html', {'form': form})
 
         return render(request, 'departments/merge.html', {'form': form})

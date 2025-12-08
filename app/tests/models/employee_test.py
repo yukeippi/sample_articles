@@ -6,10 +6,10 @@ import pytest
 from django.core.exceptions import ValidationError
 from django.db.models import ProtectedError
 
-from app.models import Employee, Department
+from app.models import Employee
 from app.tests.factories import (
-    EmployeeFactory,
     DepartmentFactory,
+    EmployeeFactory,
     create_department_with_employees,
 )
 

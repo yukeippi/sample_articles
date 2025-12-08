@@ -2,8 +2,9 @@ from datetime import date
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.utils import timezone
 
-from app.models import Reservation, UpdateStatus
+from app.models import Reservation
 from app.utils.department_reservation import DepartmentReservationHelper
 
 
@@ -34,7 +35,7 @@ class Command(BaseCommand):
                 )
                 return
         else:
-            target_date = date.today()
+            target_date = timezone.now().date()
 
         self.stdout.write(f'適用対象日: {target_date}')
 
@@ -54,7 +55,7 @@ class Command(BaseCommand):
             sorted_reservations = Reservation.topological_sort(reservations)
             self.stdout.write(self.style.SUCCESS('依存関係を解決しました'))
         except ValueError as e:
-            self.stdout.write(self.style.ERROR(f'エラー: {str(e)}'))
+            self.stdout.write(self.style.ERROR(f'エラー: {e!s}'))
             return
 
         # Dry-runモード
@@ -94,7 +95,7 @@ class Command(BaseCommand):
                     self.stdout.write(
                         self.style.ERROR(
                             f'✗ [{idx}/{len(sorted_reservations)}] 適用失敗: [{formatted["action_display"]}] '
-                            f'{formatted["name"] or formatted["department"]} - {str(e)}'
+                            f'{formatted["name"] or formatted["department"]} - {e!s}'
                         )
                     )
                     # エラーが発生した場合はロールバックのため処理を中断

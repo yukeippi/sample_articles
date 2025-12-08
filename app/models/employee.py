@@ -3,7 +3,7 @@ from uuid import uuid7
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from .base import TimestampedModel, SoftDeleteModel
+from .base import SoftDeleteModel, TimestampedModel
 
 
 class Employee(TimestampedModel, SoftDeleteModel):
@@ -45,9 +45,7 @@ class Employee(TimestampedModel, SoftDeleteModel):
             query = query.exclude(pk=self.pk)
 
         if query.exists():
-            raise ValidationError({
-                'email': 'このメールアドレスは既に使用されています。'
-            })
+            raise ValidationError({'email': 'このメールアドレスは既に使用されています。'})
 
     def save(self, *args, **kwargs):
         """保存前にバリデーションを実行"""

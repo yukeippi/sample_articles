@@ -3,6 +3,7 @@ from datetime import date
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
+from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, DeleteView, UpdateView
 
@@ -55,9 +56,11 @@ class EmployeeReservationListView(LoginRequiredMixin, View):
     def get(self, request):
         # 全ステータスの予約を取得(pending以外も表示)
         content_type = EmployeeReservationHelper.get_content_type()
-        reservations = Reservation.objects.filter(
-            content_type=content_type
-        ).select_related('status').order_by('-scheduled_date', '-created_at')
+        reservations = (
+            Reservation.objects.filter(content_type=content_type)
+            .select_related('status')
+            .order_by('-scheduled_date', '-created_at')
+        )
 
         # 各予約に表示用の情報を追加
         reservations_with_info = []
@@ -108,18 +111,24 @@ class EmployeeReservationUpdateView(LoginRequiredMixin, View):
         formatted = EmployeeReservationHelper.format_for_display(reservation)
 
         # フォームの初期値を設定
-        form = EmployeeReservationForm(initial={
-            'employee': formatted['employee'],
-            'action': formatted['action'],
-            'name': formatted['name'],
-            'email': formatted['email'],
-            'department': formatted['department'],
-            'scheduled_date': formatted['scheduled_date'],
-        })
-        return render(request, 'employees/reservations/form.html', {
-            'form': form,
-            'object': reservation,
-        })
+        form = EmployeeReservationForm(
+            initial={
+                'employee': formatted['employee'],
+                'action': formatted['action'],
+                'name': formatted['name'],
+                'email': formatted['email'],
+                'department': formatted['department'],
+                'scheduled_date': formatted['scheduled_date'],
+            }
+        )
+        return render(
+            request,
+            'employees/reservations/form.html',
+            {
+                'form': form,
+                'object': reservation,
+            },
+        )
 
     def post(self, request, pk):
         reservation = Reservation.objects.get(pk=pk, status_id=UpdateStatus.PENDING)
@@ -127,7 +136,9 @@ class EmployeeReservationUpdateView(LoginRequiredMixin, View):
         if form.is_valid():
             # 予約更新を更新
             reservation.action = form.cleaned_data['action']
-            reservation.object_id = form.cleaned_data.get('employee').id if form.cleaned_data.get('employee') else None
+            reservation.object_id = (
+                form.cleaned_data.get('employee').id if form.cleaned_data.get('employee') else None
+            )
             reservation.scheduled_date = form.cleaned_data['scheduled_date']
 
             data = {}
@@ -143,10 +154,14 @@ class EmployeeReservationUpdateView(LoginRequiredMixin, View):
             reservation.save()
 
             return redirect('app:employee_reservation_list')
-        return render(request, 'employees/reservations/form.html', {
-            'form': form,
-            'object': reservation,
-        })
+        return render(
+            request,
+            'employees/reservations/form.html',
+            {
+                'form': form,
+                'object': reservation,
+            },
+        )
 
 
 class EmployeeReservationDeleteView(LoginRequiredMixin, DeleteView):
@@ -159,10 +174,7 @@ class EmployeeReservationDeleteView(LoginRequiredMixin, DeleteView):
     def get_queryset(self):
         # 予約中のレコードのみ削除可能
         content_type = EmployeeReservationHelper.get_content_type()
-        return Reservation.objects.filter(
-            content_type=content_type,
-            status_id=UpdateStatus.PENDING
-        )
+        return Reservation.objects.filter(content_type=content_type, status_id=UpdateStatus.PENDING)
 
     def form_valid(self, form):
         # 物理削除ではなくステータス変更
@@ -176,7 +188,9 @@ class EmployeePreviewView(LoginRequiredMixin, View):
 
     def get(self, request):
         preview_date_str = request.GET.get('date')
-        preview_date = date.fromisoformat(preview_date_str) if preview_date_str else date.today()
+        preview_date = (
+            date.fromisoformat(preview_date_str) if preview_date_str else timezone.now().date()
+        )
 
         # 現在の社員データを取得
         employees = Employee.objects.select_related('department').all()
@@ -207,8 +221,12 @@ class EmployeePreviewView(LoginRequiredMixin, View):
                     'id': new_id,
                     'name': formatted['name'],
                     'email': formatted['email'],
-                    'department_id': str(formatted['department'].id) if formatted['department'] else None,
-                    'department_name': formatted['department'].name if formatted['department'] else None,
+                    'department_id': str(formatted['department'].id)
+                    if formatted['department']
+                    else None,
+                    'department_name': formatted['department'].name
+                    if formatted['department']
+                    else None,
                     'is_preview': True,  # プレビューフラグ
                 }
             elif reservation.action == Reservation.ACTION_UPDATE:
@@ -228,8 +246,7 @@ class EmployeePreviewView(LoginRequiredMixin, View):
             elif reservation.action == Reservation.ACTION_DELETE:
                 # 削除
                 emp_id = str(reservation.object_id)
-                if emp_id in employee_dict:
-                    del employee_dict[emp_id]
+                employee_dict.pop(emp_id, None)
 
         # リスト化
         employee_list = list(employee_dict.values())

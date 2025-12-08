@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('app', '0007_employee_and_more'),
     ]
@@ -13,11 +12,15 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='employee',
             name='deleted_at',
-            field=models.DateTimeField(blank=True, db_index=True, null=True, verbose_name='削除日時'),
+            field=models.DateTimeField(
+                blank=True, db_index=True, null=True, verbose_name='削除日時'
+            ),
         ),
         migrations.AddField(
             model_name='department',
             name='deleted_at',
-            field=models.DateTimeField(blank=True, db_index=True, null=True, verbose_name='削除日時'),
+            field=models.DateTimeField(
+                blank=True, db_index=True, null=True, verbose_name='削除日時'
+            ),
         ),
     ]

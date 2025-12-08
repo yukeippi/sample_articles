@@ -3,6 +3,7 @@ from datetime import date
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
+from django.utils import timezone
 from django.views import View
 from django.views.generic import DeleteView
 
@@ -18,9 +19,11 @@ class DepartmentReservationListView(LoginRequiredMixin, View):
     def get(self, request):
         # 全ステータスの予約を取得(pending以外も表示)
         content_type = DepartmentReservationHelper.get_content_type()
-        reservations = Reservation.objects.filter(
-            content_type=content_type
-        ).select_related('status', 'depends_on').order_by('-scheduled_date', '-created_at')
+        reservations = (
+            Reservation.objects.filter(content_type=content_type)
+            .select_related('status', 'depends_on')
+            .order_by('-scheduled_date', '-created_at')
+        )
 
         # 各予約に表示用の情報を追加
         reservations_with_info = []
@@ -72,19 +75,25 @@ class DepartmentReservationUpdateView(LoginRequiredMixin, View):
         formatted = DepartmentReservationHelper.format_for_display(reservation)
 
         # フォームの初期値を設定
-        form = DepartmentReservationForm(initial={
-            'department': formatted['department'],
-            'action': formatted['action'],
-            'name': formatted['name'],
-            'parent': formatted['parent'],
-            'parent_reservation': formatted.get('depends_on'),
-            'target_department': formatted.get('target_department'),
-            'scheduled_date': formatted['scheduled_date'],
-        })
-        return render(request, 'reservations/form.html', {
-            'form': form,
-            'object': reservation,
-        })
+        form = DepartmentReservationForm(
+            initial={
+                'department': formatted['department'],
+                'action': formatted['action'],
+                'name': formatted['name'],
+                'parent': formatted['parent'],
+                'parent_reservation': formatted.get('depends_on'),
+                'target_department': formatted.get('target_department'),
+                'scheduled_date': formatted['scheduled_date'],
+            }
+        )
+        return render(
+            request,
+            'reservations/form.html',
+            {
+                'form': form,
+                'object': reservation,
+            },
+        )
 
     def post(self, request, pk):
         reservation = Reservation.objects.get(pk=pk, status_id=UpdateStatus.PENDING)
@@ -92,7 +101,11 @@ class DepartmentReservationUpdateView(LoginRequiredMixin, View):
         if form.is_valid():
             # 予約更新を更新
             reservation.action = form.cleaned_data['action']
-            reservation.object_id = form.cleaned_data.get('department').id if form.cleaned_data.get('department') else None
+            reservation.object_id = (
+                form.cleaned_data.get('department').id
+                if form.cleaned_data.get('department')
+                else None
+            )
             reservation.scheduled_date = form.cleaned_data['scheduled_date']
             reservation.depends_on = form.cleaned_data.get('parent_reservation')
 
@@ -109,10 +122,14 @@ class DepartmentReservationUpdateView(LoginRequiredMixin, View):
             reservation.save()
 
             return redirect('app:department_reservation_list')
-        return render(request, 'reservations/form.html', {
-            'form': form,
-            'object': reservation,
-        })
+        return render(
+            request,
+            'reservations/form.html',
+            {
+                'form': form,
+                'object': reservation,
+            },
+        )
 
 
 class DepartmentReservationDeleteView(LoginRequiredMixin, DeleteView):
@@ -125,10 +142,7 @@ class DepartmentReservationDeleteView(LoginRequiredMixin, DeleteView):
     def get_queryset(self):
         # 予約中のレコードのみ削除可能
         content_type = DepartmentReservationHelper.get_content_type()
-        return Reservation.objects.filter(
-            content_type=content_type,
-            status_id=UpdateStatus.PENDING
-        )
+        return Reservation.objects.filter(content_type=content_type, status_id=UpdateStatus.PENDING)
 
     def form_valid(self, form):
         # 物理削除ではなくステータス変更
@@ -142,7 +156,9 @@ class DepartmentPreviewView(LoginRequiredMixin, View):
 
     def get(self, request):
         preview_date_str = request.GET.get('date')
-        preview_date = date.fromisoformat(preview_date_str) if preview_date_str else date.today()
+        preview_date = (
+            date.fromisoformat(preview_date_str) if preview_date_str else timezone.now().date()
+        )
 
         # 現在の組織データを取得
         departments = Department.objects.select_related('parent').all()
@@ -194,8 +210,7 @@ class DepartmentPreviewView(LoginRequiredMixin, View):
             elif reservation.action == Reservation.ACTION_DELETE:
                 # 削除
                 dept_id = str(reservation.object_id)
-                if dept_id in dept_dict:
-                    del dept_dict[dept_id]
+                dept_dict.pop(dept_id, None)
 
         # ツリー構築
         dept_list = list(dept_dict.values())
